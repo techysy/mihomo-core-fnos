@@ -1,3 +1,5 @@
+<img width="1293" height="782" alt="image" src="https://github.com/user-attachments/assets/292c2f63-d6ca-41d0-9ef5-7476ae87c3b7" />
+
 # Mihomo Core (mihomo-core-fnos)
 
 [![GitHub release](https://img.shields.io/github/v/release/techysy/mihomo-core-fnos?label=Latest&color=blue)](https://github.com/techysy/mihomo-core-fnos/releases)
