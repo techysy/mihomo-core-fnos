@@ -66,7 +66,7 @@ PAGE = """<!doctype html>
     <div class="row"><span class="k">混合代理端口</span><span class="v">7890</span></div>
   </div>
   <div class="card" style="text-align:center;color:#888;font-size:13px">
-    用 <b>MetaCubeXD</b> 面板控制节点：打开面板 → 填 API 地址 <code>http://%(HOST)s:9090</code>
+    用 <a href="https://github.com/techysy/metacubexd-fnos" target="_blank" rel="noopener" style="color:#ff6a00;font-weight:600;text-decoration:none" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">MetaCubeXD</a> 面板控制节点：打开面板 → 填 API 地址 <code>http://%(HOST)s:9090</code>
   </div>
 </div>
 <script>
