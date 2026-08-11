@@ -12,6 +12,7 @@ import socketserver
 
 PORT = int(os.environ.get("MIHOMO_STATUS_PORT", "9092"))
 CLASH_API = os.environ.get("MIHOMO_CLASH_API", "http://127.0.0.1:9090")
+APP_VERSION = os.environ.get("MIHOMO_APP_VERSION", "1.0.2")
 
 BRAND = "#ff6a00"  # 橙色主题
 
@@ -40,6 +41,7 @@ PAGE = """<!doctype html>
   .wrap{max-width:680px;margin:0 auto}
   .brand{font-size:22px;font-weight:700;color:#1a1a1a;margin-bottom:4px}
   .brand span{color:%(BRAND)s}
+  .brand .ver{font-size:12px;color:#888;font-weight:600;margin-left:6px}
   .sub{color:#888;font-size:13px;margin-bottom:20px}
   .card{background:#fff;border-radius:14px;box-shadow:0 2px 10px rgba(0,0,0,.06);padding:20px;margin-bottom:16px}
   .row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f0f0f0}
@@ -52,7 +54,7 @@ PAGE = """<!doctype html>
   .h{font-size:14px;font-weight:700;margin-bottom:10px}
 </style></head><body>
 <div class="wrap">
-  <div class="brand">Mihomo <span>Core</span></div>
+  <div class="brand">Mihomo <span>Core</span> <span class="ver">v%(APP_VERSION)s</span></div>
   <div class="sub">mihomo 内核代理服务 · mixed 7890 · Clash API 9090</div>
   <div class="card">
     <div class="h">内核状态</div>
@@ -83,7 +85,7 @@ async function load(){
 }
 load(); setInterval(load, 5000);
 </script></body></html>
-""" % {"BRAND": BRAND, "HOST": LAN_IP}
+""" % {"BRAND": BRAND, "HOST": LAN_IP, "APP_VERSION": APP_VERSION}
 
 
 def clash(path, default=None):
@@ -114,6 +116,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             proxies = clash("/proxies")
             data = {
                 "ok": ver is not None,
+                "app_version": APP_VERSION,
                 "version": (ver or {}).get("version", ""),
                 "mode": (cfg or {}).get("mode", ""),
                 "proxies": len((proxies or {}).get("proxies", {}) or {}),
