@@ -105,7 +105,7 @@ fnapp install /path/to/mihomo-core-1.0.3-iframe.fpk
 |--------|----------------|
 | 显示内核在线状态、版本、节点/规则数 | 管理节点、规则、连接 |
 
-> （可自行补充实际截图）
+<img width="1080" height="653" alt="634201423-292c2f63-d6ca-41d0-9ef5-7476ae87c3b7" src="https://github.com/user-attachments/assets/7f1eedfe-b816-4fb9-b3be-ff7fe81516f9" />
 
 ---
 
