@@ -39,7 +39,7 @@ PAGE = """<!doctype html>
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
   body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f5f6f8;color:#1a1a1a;padding:24px;display:flex;justify-content:center;align-items:center;min-height:100vh}
-  .wrap{max-width:680px}
+  .wrap{max-width:860px}
   .brand{font-size:22px;font-weight:700;color:#1a1a1a;margin-bottom:4px}
   .brand span{color:%(BRAND)s}
   .brand .ver{font-size:12px;color:#888;font-weight:600;margin-left:6px}
