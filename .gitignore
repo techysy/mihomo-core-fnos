@@ -1,0 +1,24 @@
+# 打包产物
+*.fpk
+*.tgz
+
+# 大二进制 (mihomo 内核 + geoip 数据, 不提交, 需单独获取)
+app/mihomo
+app/geoip.metadb
+app/geosite.dat
+
+# 运行时数据
+*.log
+*.pid
+*.conf
+config.yaml
+
+# 系统/编辑器
+.DS_Store
+__pycache__/
+*.pyc
+
+# 图标 (可从 mihomo-panel 复制)
+ICON.PNG
+ICON_256.PNG
+app/ui/images/

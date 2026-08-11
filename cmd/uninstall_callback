@@ -1,0 +1,6 @@
+#!/bin/bash
+set -uo pipefail
+DATA_DIR="${TRIM_PKGVAR:-/vol4/@appdata/${APP_NAME:-mihomo-core}}"
+echo "[$(date "+%F %T")] mihomo-core uninstalled" >> "${DATA_DIR}/install.log" 2>/dev/null
+rm -f "${DATA_DIR}/mihomo.pid"
+exit 0

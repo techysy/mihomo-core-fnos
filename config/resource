@@ -1,0 +1,21 @@
+{
+    "data-share":
+    {
+        "shares": [
+            {
+                "name": "mihomo-core",
+                "permission":
+                {
+                    "rw": ["mihomo-core"]
+                }
+            },
+            {
+                "name": "mihomo-core/data",
+                "permission":
+                {
+                    "rw": ["mihomo-core"]
+                }
+            }
+        ]
+    }
+}

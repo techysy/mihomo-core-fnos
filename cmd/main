@@ -1,0 +1,124 @@
+#!/bin/bash
+# mihomo-core — 只运行 mihomo 内核（自启服务），用 MetaCubeXD 面板控制
+set -uo pipefail
+
+APP_NAME="${TRIM_APPNAME:-mihomo-core}"
+APP_DIR="${TRIM_APPDEST:-/var/apps/${APP_NAME}}"
+DATA_DIR="${TRIM_PKGVAR:-/vol4/@appdata/${APP_NAME}}"
+MIHOMO_BIN="${APP_DIR}/mihomo"
+STATUS_BIN="${APP_DIR}/status_server.py"
+STATUS_PORT="${MIHOMO_STATUS_PORT:-9092}"
+LOG="${DATA_DIR}/mihomo.log"
+PID_FILE="${DATA_DIR}/mihomo.pid"
+STATUS_PID_FILE="${DATA_DIR}/status.pid"
+# 运行时配置（首次启动从安装目录复制，之后用户可在面板改）
+CORE_CONFIG="${DATA_DIR}/config.yaml"
+# 面板 UI（MetaCubeXD 用，如需可留空）
+#UI_DIR="${APP_DIR}/www"
+
+mkdir -p "${DATA_DIR}"
+
+log() { echo "[$(date '+%F %T')] $*" >> "${LOG}"; }
+
+ensure_config() {
+    # 首次启动: 把默认 config.yaml 复制到数据目录
+    if [ ! -f "${CORE_CONFIG}" ]; then
+        if [ -f "${APP_DIR}/config.yaml" ]; then
+            cp "${APP_DIR}/config.yaml" "${CORE_CONFIG}"
+            echo "initialized config.yaml" >> "${LOG}"
+        fi
+    fi
+    # 预置 geoip 数据 (避免 mihomo 走公网下载失败): 安装目录有预置的则强制覆盖数据目录
+    if [ -f "${APP_DIR}/geoip.metadb" ]; then
+        cp -f "${APP_DIR}/geoip.metadb" "${DATA_DIR}/geoip.metadb"
+        echo "preseed geoip.metadb" >> "${LOG}"
+    fi
+    # 预置 geosite (可选)
+    if [ ! -f "${DATA_DIR}/geosite.dat" ] && [ -f "${APP_DIR}/geosite.dat" ]; then
+        cp "${APP_DIR}/geosite.dat" "${DATA_DIR}/geosite.dat"
+        echo "preseed geosite.dat" >> "${LOG}"
+    fi
+}
+
+start() {
+    if [ -f "${PID_FILE}" ] && kill -0 "$(cat "${PID_FILE}")" 2>/dev/null; then
+        log "already running (pid $(cat "${PID_FILE}"))"
+        return 0
+    fi
+    if curl -sf "http://127.0.0.1:9090/version" >/dev/null 2>&1; then
+        log "port 9090 already serving — treating as running"
+        return 0
+    fi
+    ensure_config
+    # mihomo 首次启动自动下载 geoip/geosite 数据到 DATA_DIR（需联网）
+    nohup "${MIHOMO_BIN}" -d "${DATA_DIR}" -f "${CORE_CONFIG}" >> "${LOG}" 2>&1 &
+    echo $! > "${PID_FILE}"
+    log "mihomo started (pid $(cat "${PID_FILE}"))"
+    start_status
+    for i in $(seq 1 20); do
+        if curl -sf "http://127.0.0.1:9090/version" >/dev/null 2>&1; then
+            log "core ready on :9090 after ${i}s"
+            return 0
+        fi
+        sleep 1
+    done
+    log "core start timed out"
+    return 0
+}
+
+stop() {
+    if [ -f "${PID_FILE}" ]; then
+        PID=$(cat "${PID_FILE}")
+        kill "${PID}" 2>/dev/null || true
+        for i in 1 2 3; do
+            kill -0 "${PID}" 2>/dev/null || { rm -f "${PID_FILE}"; log "stopped (pid ${PID})"; return 0; }
+            sleep 1
+        done
+        kill -9 "${PID}" 2>/dev/null || true
+        rm -f "${PID_FILE}"
+        log "force stopped (pid ${PID})"
+    fi
+    pkill -f "${MIHOMO_BIN}" 2>/dev/null || true
+    stop_status
+    log "stop complete"
+}
+
+# ── 状态页服务 (:9092) ─────────────────────────────
+start_status() {
+    if [ -f "${STATUS_PID_FILE}" ] && kill -0 "$(cat "${STATUS_PID_FILE}")" 2>/dev/null; then
+        return 0
+    fi
+    nohup /usr/bin/python3 "${STATUS_BIN}" >> "${LOG}" 2>&1 &
+    echo $! > "${STATUS_PID_FILE}"
+    log "status page started on :${STATUS_PORT}"
+}
+
+stop_status() {
+    if [ -f "${STATUS_PID_FILE}" ]; then
+        kill "$(cat "${STATUS_PID_FILE}")" 2>/dev/null || true
+        rm -f "${STATUS_PID_FILE}"
+    fi
+    pkill -f "${STATUS_BIN}" 2>/dev/null || true
+}
+
+status() {
+    local core_ok=no web_ok=no
+    if [ -f "${PID_FILE}" ] && kill -0 "$(cat "${PID_FILE}")" 2>/dev/null; then
+        core_ok=yes
+    elif curl -sf "http://127.0.0.1:9090/version" >/dev/null 2>&1; then
+        core_ok=yes
+    fi
+    if [ -f "${STATUS_PID_FILE}" ] && kill -0 "$(cat "${STATUS_PID_FILE}")" 2>/dev/null; then
+        web_ok=yes
+    fi
+    echo "core=${core_ok} status_page=${web_ok}"
+    [ "${core_ok}" = "yes" ]
+}
+
+case "${1:-start}" in
+    start) start ;;
+    stop) stop ;;
+    status) status ;;
+    restart) stop; sleep 1; start ;;
+    *) echo "Usage: $0 {start|stop|status|restart}"; exit 1 ;;
+esac

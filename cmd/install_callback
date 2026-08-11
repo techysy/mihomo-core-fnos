@@ -1,0 +1,7 @@
+#!/bin/bash
+set -uo pipefail
+# 安装回调 — mihomo 内核无需额外安装（二进制在 app.tgz 内）
+DATA_DIR="${TRIM_PKGVAR:-/vol4/@appdata/${APP_NAME:-mihomo-core}}"
+mkdir -p "${DATA_DIR}"
+echo "[$(date '+%F %T')] mihomo-core installed" >> "${DATA_DIR}/install.log"
+exit 0
