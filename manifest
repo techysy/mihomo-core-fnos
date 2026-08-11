@@ -1,5 +1,5 @@
 appname               = mihomo-core
-version               = 1.0.3
+version               = 1.0.4
 display_name          = Mihomo Core
 desc                  = Mihomo 内核代理服务（自启）— mixed 7890 / Clash API 9090，状态页 9092，用 MetaCubeXD 面板控制节点
 arch                  = x86_64

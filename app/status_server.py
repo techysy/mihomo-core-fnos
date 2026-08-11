@@ -12,7 +12,7 @@ import socketserver
 
 PORT = int(os.environ.get("MIHOMO_STATUS_PORT", "9092"))
 CLASH_API = os.environ.get("MIHOMO_CLASH_API", "http://127.0.0.1:9090")
-APP_VERSION = os.environ.get("MIHOMO_APP_VERSION", "1.0.3")
+APP_VERSION = os.environ.get("MIHOMO_APP_VERSION", "1.0.4")
 
 BRAND = "#ff6a00"  # 橙色主题
 
