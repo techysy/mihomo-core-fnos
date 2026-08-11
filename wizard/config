@@ -4,6 +4,13 @@
     "items": [
       {
         "type": "text",
+        "field": "subscription_name",
+        "label": "订阅名称",
+        "initValue": "",
+        "tip": "自定义订阅名称（如 机场A），用于在面板/状态页区分多个订阅。留空则自动命名 provider1。"
+      },
+      {
+        "type": "text",
         "field": "subscription_url",
         "label": "订阅链接 (proxy-providers URL)",
         "initValue": "",

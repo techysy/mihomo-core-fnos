@@ -67,7 +67,7 @@ PAGE = """<!doctype html>
     <div class="row"><span class="k">混合代理端口</span><span class="v">7890</span></div>
   </div>
   <div class="card" style="text-align:center;color:#888;font-size:13px;line-height:1.7">
-    <a href="https://github.com/techysy/metacubexd-fnos" target="_blank" rel="noopener" style="color:#ff6a00;font-weight:600;text-decoration:none" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">MetaCubeXD</a> 面板用于控制节点。若未安装，可点击橙色文字下载；<br>
+    <a href="https://github.com/techysy/metacubexd-fnos" target="_blank" rel="noopener" style="color:#ff6a00;font-weight:600;text-decoration:none" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">MetaCubeXD</a> 面板用于控制节点。若未安装，可点击橙色文字下载<br>
     已安装则在面板中填 API 地址 <a href="javascript:void(0)" onclick="copyApi()" title="点击复制" style="color:#ff6a00;font-weight:600;text-decoration:none;cursor:pointer" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">http://%(HOST)s:9090</a> <span id="copiedTip" style="color:#1a9e4e;font-size:12px"></span>
   </div>
 </div>
@@ -151,6 +151,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             ver = clash("/version")
             cfg = clash("/configs")
             proxies = clash("/proxies")
+            rules_api = clash("/rules") or {}
             providers = clash("/providers/proxies") or {}
             # 订阅 (proxy-providers) 状态：只统计真正的订阅(HTTP/File)，排除内置 proxy-group(Compatible)
             subs = []
@@ -172,7 +173,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 "version": (ver or {}).get("version", ""),
                 "mode": (cfg or {}).get("mode", ""),
                 "proxies": len((proxies or {}).get("proxies", {}) or {}),
-                "rules": (cfg or {}).get("rules_count", 0),
+                "rules": len(rules_api.get("rules", []) or []),
                 "subscriptions": subs,
             }
             body = json.dumps(data).encode()

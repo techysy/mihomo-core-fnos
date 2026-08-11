@@ -1,6 +1,6 @@
 #!/bin/bash
 # 应用设置保存时执行（App Center 设置界面）
-# 订阅链接通过环境变量 subscription_url 传入
+# 订阅名称/链接通过环境变量 subscription_name / subscription_url 传入
 set -uo pipefail
 
 APP_NAME="${TRIM_APPNAME:-mihomo-core}"
@@ -9,12 +9,18 @@ CORE_CONFIG="${DATA_DIR}/config.yaml"
 LOG="${DATA_DIR}/mihomo.log"
 
 mkdir -p "${DATA_DIR}"
+SUB_NAME="${subscription_name:-}"
 SUB_URL="${subscription_url:-}"
 
-# 保存订阅链接（供 cmd/main ensure_config 使用）
+# 保存订阅配置（供 cmd/main ensure_config 使用）：格式 "名称|链接"
 if [ -n "${SUB_URL}" ]; then
-    echo "${SUB_URL}" > "${DATA_DIR}/subscription_url"
-    echo "[$(date '+%F %T')] config_callback: subscription set" >> "${LOG}"
+    if [ -n "${SUB_NAME}" ]; then
+        echo "${SUB_NAME}|${SUB_URL}" > "${DATA_DIR}/subscription_url"
+        echo "[$(date '+%F %T')] config_callback: subscription set (${SUB_NAME})" >> "${LOG}"
+    else
+        echo "${SUB_URL}" > "${DATA_DIR}/subscription_url"
+        echo "[$(date '+%F %T')] config_callback: subscription set" >> "${LOG}"
+    fi
 else
     # 留空则清空订阅
     rm -f "${DATA_DIR}/subscription_url"
