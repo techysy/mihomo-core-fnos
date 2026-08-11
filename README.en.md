@@ -1,5 +1,11 @@
 # Mihomo Core (mihomo-core-fnos)
 
+[![GitHub release](https://img.shields.io/github/v/release/techysy/mihomo-core-fnos?label=Latest&color=blue)](https://github.com/techysy/mihomo-core-fnos/releases)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/techysy/mihomo-core-fnos/blob/main/LICENSE)
+[![mihomo: GPLv3](https://img.shields.io/badge/mihomo-GPLv3-blueviolet.svg)](https://github.com/MetaCubeX/mihomo)
+[![fnOS](https://img.shields.io/badge/fnOS-1.1.31xx+-orange.svg)](https://developer.fnnas.com/docs/guide)
+[![Arch: x86_64](https://img.shields.io/badge/Arch-x86__64-lightgrey.svg)]()
+
 An fnOS app: **standalone mihomo proxy core** (auto-start) controlled via the **MetaCubeXD** panel.
 
 - Mixed proxy port: `7890`

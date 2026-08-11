@@ -1,5 +1,11 @@
 # Mihomo Core (mihomo-core-fnos)
 
+[![GitHub release](https://img.shields.io/github/v/release/techysy/mihomo-core-fnos?label=Latest&color=blue)](https://github.com/techysy/mihomo-core-fnos/releases)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/techysy/mihomo-core-fnos/blob/main/LICENSE)
+[![mihomo: GPLv3](https://img.shields.io/badge/mihomo-GPLv3-blueviolet.svg)](https://github.com/MetaCubeX/mihomo)
+[![fnOS](https://img.shields.io/badge/fnOS-1.1.31xx+-orange.svg)](https://developer.fnnas.com/docs/guide)
+[![Arch: x86_64](https://img.shields.io/badge/Arch-x86__64-lightgrey.svg)]()
+
 fnOS 应用：**独立的 mihomo 内核代理服务**（自启），配合 **MetaCubeXD 面板** 控制节点。
 
 - 混合代理端口：`7890`
