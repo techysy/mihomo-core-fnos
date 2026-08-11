@@ -13,6 +13,7 @@ import socketserver
 PORT = int(os.environ.get("MIHOMO_STATUS_PORT", "9092"))
 CLASH_API = os.environ.get("MIHOMO_CLASH_API", "http://127.0.0.1:9090")
 APP_VERSION = os.environ.get("MIHOMO_APP_VERSION", "1.0.4")
+DATA_DIR = os.environ.get("MIHOMO_DATA_DIR", "/vol4/@appdata/mihomo-core")
 
 BRAND = "#ff6a00"  # 橙色主题
 
@@ -107,16 +108,13 @@ async function load(){
     document.getElementById('mode').textContent = d.mode||'—';
     document.getElementById('nodes').textContent = d.proxies||'—';
     document.getElementById('rules').textContent = d.rules||'—';
-    // 订阅状态
+    // 订阅状态（完整配置模式）
     const subsEl = document.getElementById('subs');
-    const subs = d.subscriptions || [];
-    if(!subs.length){
-      subsEl.textContent = '未配置';
+    if(d.subscription_configured){
+      const name = d.subscription_name || '订阅配置';
+      subsEl.innerHTML = '<span style="color:#1a9e4e">' + name + ' · 完整配置已启用</span>';
     } else {
-      subsEl.innerHTML = subs.map(function(s){
-        const ok = !s.error;
-        return '<span style="color:' + (ok ? '#1a9e4e' : '#d93025') + '">' + s.name + ' · ' + s.proxies + '节点</span>';
-      }).join('<br>');
+      subsEl.textContent = '未配置';
     }
   }catch(e){}
 }
@@ -153,6 +151,16 @@ class Handler(http.server.BaseHTTPRequestHandler):
             proxies = clash("/proxies")
             rules_api = clash("/rules") or {}
             providers = clash("/providers/proxies") or {}
+            # 订阅配置检测：若应用设置里配了订阅链接（subscription_url 文件存在），则订阅作为完整配置启用
+            sub_configured = os.path.isfile(os.path.join(DATA_DIR, "subscription_url"))
+            sub_name = ""
+            try:
+                with open(os.path.join(DATA_DIR, "subscription_url"), encoding="utf-8") as f:
+                    first = f.read().strip().splitlines()
+                    if first and "|" in first[0]:
+                        sub_name = first[0].split("|", 1)[0].strip()
+            except Exception:
+                pass
             # 订阅 (proxy-providers) 状态：只统计真正的订阅(HTTP/File)，排除内置 proxy-group(Compatible)
             subs = []
             for name, prov in (providers.get("providers") or {}).items():
@@ -175,6 +183,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 "proxies": len((proxies or {}).get("proxies", {}) or {}),
                 "rules": len(rules_api.get("rules", []) or []),
                 "subscriptions": subs,
+                "subscription_configured": sub_configured,
+                "subscription_name": sub_name,
             }
             body = json.dumps(data).encode()
             self._send(200, body, "application/json; charset=utf-8")
