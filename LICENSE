@@ -1,0 +1,45 @@
+Mihomo Core (mihomo-core-fnos) — fnOS 应用打包
+
+=====================================================================
+第三方内核许可证
+=====================================================================
+
+本应用包含 mihomo 内核二进制（mihomo / Clash Meta），
+其源代码来自 https://github.com/MetaCubeX/mihomo
+
+mihomo 采用 **GNU General Public License v3.0 (GPLv3)** 许可。
+完整许可证文本见同目录下的 GPL-3.0.txt。
+
+依据 GPLv3 的要求：
+- 本包随附 GPLv3 许可证文本（GPL-3.0.txt）
+- mihomo 源代码可从 https://github.com/MetaCubeX/mihomo 获取
+- 本打包脚本仅负责 fnOS 应用的封装/启动，不修改 mihomo 内核源码
+
+=====================================================================
+本应用自身（打包脚本、状态页、配置）
+=====================================================================
+
+本项目（mihomo-core-fnos 的 manifest / cmd / status_server.py / config）
+采用 MIT 许可证，见下方 MIT License 段落。
+
+MIT License
+
+Copyright (c) 2026 techysy (洋芋 / YangYu)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
