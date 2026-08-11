@@ -67,10 +67,34 @@ PAGE = """<!doctype html>
   </div>
   <div class="card" style="text-align:center;color:#888;font-size:13px;line-height:1.7">
     <a href="https://github.com/techysy/metacubexd-fnos" target="_blank" rel="noopener" style="color:#ff6a00;font-weight:600;text-decoration:none" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">MetaCubeXD</a> 面板用于控制节点。若未安装，可点击橙色文字下载；<br>
-    已安装则在面板中填 API 地址 <a href="http://%(HOST)s:9090" target="_blank" rel="noopener" style="color:#ff6a00;font-weight:600;text-decoration:none" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">http://%(HOST)s:9090</a>
+    已安装则在面板中填 API 地址 <a href="javascript:void(0)" onclick="copyApi()" title="点击复制" style="color:#ff6a00;font-weight:600;text-decoration:none;cursor:pointer" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">http://%(HOST)s:9090</a> <span id="copiedTip" style="color:#1a9e4e;font-size:12px"></span>
   </div>
 </div>
 <script>
+// 复制 API 地址到剪贴板
+function copyApi(){
+  var url = 'http://%(HOST)s:9090';
+  var tip = document.getElementById('copiedTip');
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(url).then(function(){ showCopied(tip); }, function(){ fallbackCopy(url, tip); });
+  } else {
+    fallbackCopy(url, tip);
+  }
+}
+function fallbackCopy(text, tip){
+  var ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed'; ta.style.opacity = '0';
+  document.body.appendChild(ta);
+  ta.select();
+  try{ document.execCommand('copy'); showCopied(tip); }catch(e){}
+  document.body.removeChild(ta);
+}
+function showCopied(tip){
+  if(!tip) return;
+  tip.textContent = '已复制 ✓';
+  setTimeout(function(){ tip.textContent = ''; }, 2000);
+}
 async function load(){
   try{
     const r = await fetch('/api/status');
