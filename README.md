@@ -1,4 +1,5 @@
-<img width="1293" height="782" alt="image" src="https://github.com/user-attachments/assets/292c2f63-d6ca-41d0-9ef5-7476ae87c3b7" />
+<img width="1080" height="653" alt="634201423-292c2f63-d6ca-41d0-9ef5-7476ae87c3b7" src="https://github.com/user-attachments/assets/cc8d9d9e-76e7-4faa-b135-ea651e8188d0" />
+
 
 # Mihomo Core (mihomo-core-fnos)
 
