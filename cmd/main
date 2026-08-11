@@ -71,15 +71,20 @@ stop() {
         PID=$(cat "${PID_FILE}")
         kill "${PID}" 2>/dev/null || true
         for i in 1 2 3; do
-            kill -0 "${PID}" 2>/dev/null || { rm -f "${PID_FILE}"; log "stopped (pid ${PID})"; return 0; }
+            kill -0 "${PID}" 2>/dev/null || { rm -f "${PID_FILE}"; log "stopped (pid ${PID})"; break; }
             sleep 1
         done
         kill -9 "${PID}" 2>/dev/null || true
         rm -f "${PID_FILE}"
-        log "force stopped (pid ${PID})"
     fi
-    pkill -f "${MIHOMO_BIN}" 2>/dev/null || true
     stop_status
+    # 彻底清理: 按进程路径/名 + 按端口，杀掉一切残留
+    pkill -9 -f "${MIHOMO_BIN}" 2>/dev/null || true
+    pkill -9 -f "mihomo" 2>/dev/null || true
+    pkill -9 -f "${STATUS_BIN}" 2>/dev/null || true
+    pkill -9 -f "status_server.py" 2>/dev/null || true
+    # 释放端口 (fuser 存在则用，否则忽略)
+    command -v fuser >/dev/null 2>&1 && { fuser -k 9090/tcp 7890/tcp ${STATUS_PORT}/tcp 2>/dev/null || true; }
     log "stop complete"
 }
 

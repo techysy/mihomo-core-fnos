@@ -43,15 +43,37 @@ An fnOS app: **standalone mihomo proxy core** (auto-start) controlled via the **
 
 ## Install
 
-1. Install `mihomo-core` in fnOS App Center (license agreement shown)
-2. Open **Mihomo Core** on the desktop to view core status
-3. Open **MetaCubeXD** panel, set API address:
+1. Download `mihomo-core-x.x.x.fpk` from [Releases](https://github.com/techysy/mihomo-core-fnos/releases)
+2. Install it manually in fnOS App Center (license agreement shown)
+3. Open **Mihomo Core** on the desktop to view core status
+4. Open **MetaCubeXD** panel, set API address:
    ```
    http://<NAS-IP>:9090
    ```
-4. Add your nodes/subscription — mihomo-core loads them automatically
+5. Add your nodes/subscription — mihomo-core loads them automatically
 
 > ⚠️ Use the **NAS LAN IP** (e.g. `192.168.31.101:9090`), not `127.0.0.1` (that's the user's own device).
+
+## Port in use / leftover process
+
+If you get `port in use` (9090 / 7890 / 9092) after uninstall/reinstall, a process is leftover. SSH into the NAS and run:
+
+```bash
+# kill leftover mihomo / status page processes
+pkill -9 -f mihomo
+pkill -9 -f status_server.py
+
+# force-free the ports (pick one)
+fuser -k 9090/tcp 7890/tcp 9092/tcp    # if fuser exists
+# or find the PID with lsof and kill it
+lsof -i :9090
+kill -9 <PID>
+
+# confirm ports are free (should output nothing)
+ss -tln | grep -E ':9090|:7890|:9092'
+```
+
+> 💡 The app cleans up processes on uninstall; if still occupied, it's usually a leftover from manual testing — free it with the commands above.
 
 ## Config
 
