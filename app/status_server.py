@@ -112,7 +112,7 @@ async function load(){
     const subsEl = document.getElementById('subs');
     if(d.subscription_configured){
       const name = d.subscription_name || '订阅配置';
-      subsEl.innerHTML = '<span style="color:#1a9e4e">' + name + ' · 完整配置已启用</span>';
+      subsEl.innerHTML = '<span style="color:#1a9e4e">' + name + ' · 已启用</span>';
     } else {
       subsEl.textContent = '未配置';
     }
