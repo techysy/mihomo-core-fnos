@@ -79,5 +79,6 @@ fnpack build
 
 ## Related
 
-- [MetaCubeXD](https://github.com/MetaCubeX/metacubexd) — panel frontend
-- [mihomo](https://github.com/MetaCubeX/mihomo) — core
+- [metacubexd-fnos](https://github.com/techysy/metacubexd-fnos) — MetaCubeXD panel (fnOS, MIT) — use this panel to control this core
+- [mihomo](https://github.com/MetaCubeX/mihomo) — core (GPLv3)
+- [MetaCubeXD upstream](https://github.com/MetaCubeX/metacubexd) — panel frontend (GPLv3)

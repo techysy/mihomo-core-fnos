@@ -83,5 +83,6 @@ fnpack build
 
 ## 相关项目
 
-- [MetaCubeXD](https://github.com/MetaCubeX/metacubexd) — 面板前端
-- [mihomo](https://github.com/MetaCubeX/mihomo) — 内核
+- [metacubexd-fnos](https://github.com/techysy/metacubexd-fnos) — MetaCubeXD 面板（fnOS 版，MIT）— 用这个面板控制本内核
+- [mihomo](https://github.com/MetaCubeX/mihomo) — 内核（GPLv3）
+- [MetaCubeXD 上游](https://github.com/MetaCubeX/metacubexd) — 面板前端（GPLv3）
