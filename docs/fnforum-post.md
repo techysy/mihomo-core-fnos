@@ -148,3 +148,9 @@ ss -tln | grep -E ':9090|:7890|:9092'  # 确认已释放（应无输出）
 ---
 
 > 💡 有任何问题或建议，欢迎在 GitHub Issues 反馈！
+>
+> 🌟 觉得好用的话，欢迎给项目点个 **Star** 支持一下，感谢！
+
+<a href="https://github.com/techysy/mihomo-core-fnos" target="_blank">
+  <img src="https://img.shields.io/github/stars/techysy/mihomo-core-fnos?style=for-the-badge&logo=github" alt="GitHub stars" />
+</a>
