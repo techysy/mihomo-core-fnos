@@ -71,12 +71,17 @@ fnapp install /path/to/mihomo-core-1.0.3-iframe.fpk
 
 ## 🎯 使用教程
 
+### 第一步：配置订阅（可选）
+
+**App Center → Mihomo Core → 应用设置** 填订阅链接，保存后自动配置进 mihomo 内核并重启拉取节点。
+
 ### 第一步：查看内核状态
 
 桌面打开 **Mihomo Core** → 看到状态页：
 - Clash API 在线 / 离线
 - 内核版本（如 v1.19.29）
 - 节点数 / 规则数
+- **订阅状态**（订阅 provider + 节点数）
 
 ### 第二步：用 MetaCubeXD 面板控制
 

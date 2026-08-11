@@ -1,0 +1,14 @@
+[
+  {
+    "stepTitle": "Mihomo 内核配置",
+    "items": [
+      {
+        "type": "text",
+        "field": "subscription_url",
+        "label": "订阅链接 (proxy-providers URL)",
+        "initValue": "",
+        "tip": "填写机场/订阅链接后保存，会自动配置进 mihomo 内核并重启拉取节点。留空则不配置订阅。"
+      }
+    ]
+  }
+]

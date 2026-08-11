@@ -78,6 +78,7 @@ ss -tln | grep -E ':9090|:7890|:9092'
 ## Config
 
 - Config file: `<data-dir>/config.yaml` (copied from the package on first start)
+- **Subscription**: enter your subscription URL in **App Center → App Settings**; it's written into the mihomo config and pulled on restart
 - After adding nodes, restart mihomo-core in App Center to apply (or trigger reload in the panel)
 - To change proxy `7890` / Clash API `9090`, edit config.yaml and restart
 

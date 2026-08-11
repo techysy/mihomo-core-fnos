@@ -63,6 +63,7 @@ PAGE = """<!doctype html>
     <div class="row"><span class="k">模式</span><span id="mode" class="v">—</span></div>
     <div class="row"><span class="k">节点数</span><span id="nodes" class="v">—</span></div>
     <div class="row"><span class="k">规则数</span><span id="rules" class="v">—</span></div>
+    <div class="row"><span class="k">订阅状态</span><span id="subs" class="v">未配置</span></div>
     <div class="row"><span class="k">混合代理端口</span><span class="v">7890</span></div>
   </div>
   <div class="card" style="text-align:center;color:#888;font-size:13px;line-height:1.7">
@@ -106,6 +107,17 @@ async function load(){
     document.getElementById('mode').textContent = d.mode||'—';
     document.getElementById('nodes').textContent = d.proxies||'—';
     document.getElementById('rules').textContent = d.rules||'—';
+    // 订阅状态
+    const subsEl = document.getElementById('subs');
+    const subs = d.subscriptions || [];
+    if(!subs.length){
+      subsEl.textContent = '未配置';
+    } else {
+      subsEl.innerHTML = subs.map(function(s){
+        const ok = !s.error;
+        return '<span style="color:' + (ok ? '#1a9e4e' : '#d93025') + '">' + s.name + ' · ' + s.proxies + '节点</span>';
+      }).join('<br>');
+    }
   }catch(e){}
 }
 load(); setInterval(load, 5000);
@@ -139,6 +151,21 @@ class Handler(http.server.BaseHTTPRequestHandler):
             ver = clash("/version")
             cfg = clash("/configs")
             proxies = clash("/proxies")
+            providers = clash("/providers/proxies") or {}
+            # 订阅 (proxy-providers) 状态：只统计真正的订阅(HTTP/File)，排除内置 proxy-group(Compatible)
+            subs = []
+            for name, prov in (providers.get("providers") or {}).items():
+                vt = prov.get("vehicleType", prov.get("vehicle-type", ""))
+                if vt in ("Compatible", "Direct"):
+                    continue
+                subs.append({
+                    "name": name,
+                    "type": prov.get("type", ""),
+                    "vehicle_type": vt,
+                    "proxies": len(prov.get("proxies", []) or []),
+                    "updated_at": prov.get("updatedAt", prov.get("updated_at", "")),
+                    "error": prov.get("error", ""),
+                })
             data = {
                 "ok": ver is not None,
                 "app_version": APP_VERSION,
@@ -146,6 +173,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 "mode": (cfg or {}).get("mode", ""),
                 "proxies": len((proxies or {}).get("proxies", {}) or {}),
                 "rules": (cfg or {}).get("rules_count", 0),
+                "subscriptions": subs,
             }
             body = json.dumps(data).encode()
             self._send(200, body, "application/json; charset=utf-8")

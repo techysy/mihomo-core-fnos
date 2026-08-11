@@ -29,6 +29,11 @@ ensure_config() {
             echo "initialized config.yaml" >> "${LOG}"
         fi
     fi
+    # 应用设置配置的订阅链接: 写入 config.yaml 的 proxy-providers
+    if [ -f "${DATA_DIR}/subscription_url" ]; then
+        SUB_URL="$(cat "${DATA_DIR}/subscription_url")"
+        apply_subscription "${SUB_URL}"
+    fi
     # 预置 geoip 数据 (避免 mihomo 走公网下载失败): 安装目录有预置的则强制覆盖数据目录
     if [ -f "${APP_DIR}/geoip.metadb" ]; then
         cp -f "${APP_DIR}/geoip.metadb" "${DATA_DIR}/geoip.metadb"
@@ -39,6 +44,36 @@ ensure_config() {
         cp "${APP_DIR}/geosite.dat" "${DATA_DIR}/geosite.dat"
         echo "preseed geosite.dat" >> "${LOG}"
     fi
+}
+
+# 把订阅链接写入 config.yaml 的 proxy-providers（幂等，多次调用安全）
+apply_subscription() {
+    local url="$1"
+    if [ -z "${url}" ]; then
+        return 0
+    fi
+    if grep -q '^proxy-providers:' "${CORE_CONFIG}" 2>/dev/null; then
+        python3 - "$url" "${CORE_CONFIG}" <<'PYEOF'
+import sys, re
+url, p = sys.argv[1], sys.argv[2]
+s = open(p, encoding='utf-8').read()
+s = re.sub(r'(  provider1:\s*\n    type: http\s*\n    url:).*', r'\1 ' + repr(url), s)
+if 'provider1:' not in s:
+    s += "\nproxy-providers:\n  provider1:\n    type: http\n    url: " + url + "\n    interval: 3600\n    path: ./provider1.yaml\n    proxy: DIRECT\n"
+open(p, 'w', encoding='utf-8').write(s)
+print("subscription applied")
+PYEOF
+    else
+        python3 - "$url" "${CORE_CONFIG}" <<'PYEOF'
+import sys
+url, p = sys.argv[1], sys.argv[2]
+s = open(p, encoding='utf-8').read()
+s += "\nproxy-providers:\n  provider1:\n    type: http\n    url: " + url + "\n    interval: 3600\n    path: ./provider1.yaml\n    proxy: DIRECT\n"
+open(p, 'w', encoding='utf-8').write(s)
+print("subscription appended")
+PYEOF
+    fi
+    echo "[$(date '+%F %T')] apply_subscription: ${url}" >> "${LOG}"
 }
 
 start() {
