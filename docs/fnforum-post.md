@@ -64,7 +64,7 @@
 
 ```bash
 # 需要 fnOS App Center 支持 install 命令
-fnapp install /path/to/mihomo-core-1.0.2-iframe.fpk
+fnapp install /path/to/mihomo-core-1.0.3-iframe.fpk
 ```
 
 ---
