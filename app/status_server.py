@@ -102,8 +102,7 @@ PAGE = """<!doctype html>
     <div class="row"><span class="k">模式</span><span id="mode" class="v">—</span></div>
     <div class="row"><span class="k">节点数</span><span id="nodes" class="v">—</span></div>
     <div class="row"><span class="k">规则数</span><span id="rules" class="v">—</span></div>
-        <div class="row"><span class="k">订阅</span><span id="subs" class="v">未配置</span></div>
-    <div class="row"><span class="k">手动获取订阅</span><span class="v"><button id="subBtn" onclick="updateSub()" style="background:%(BRAND)s;color:#fff;border:none;border-radius:6px;padding:5px 16px;font-size:13px;font-weight:600;cursor:pointer">获取订阅</button> <span id="subResult" style="font-size:12px;color:#888"></span></span></div>
+    <div class="row"><span class="k">订阅</span><span id="subs" class="v" style="cursor:pointer" title="点击手动获取订阅">未配置</span></div>
     <div class="row"><span class="k">混合代理端口</span><span class="v">7890</span></div>
   </div>
   <div class="card meta-tip" style="text-align:center;color:#888;font-size:13px;line-height:1.7">
@@ -140,22 +139,22 @@ function showCopied(tip){
   tip.textContent = '已复制 ✓';
   setTimeout(function(){ tip.textContent = ''; }, 2000);
 }
+var subUpdating = false;
 async function updateSub(){
-  var btn = document.getElementById('subBtn');
-  var res = document.getElementById('subResult');
-  btn.disabled = true; btn.textContent = '获取中…';
-  res.textContent = '';
+  if(subUpdating) return;
+  subUpdating = true;
+  var subsEl = document.getElementById('subs');
+  subsEl.innerHTML = '<span style="color:#888">获取中…</span>';
   try{
     const r = await fetch('/api/update_subscription');
     const d = await r.json();
-    if(d.ok){ res.innerHTML = '<span style="color:#1a9e4e">✓ 已更新 ' + (d.nodes||'') + ' 节点</span>'; }
-    else { res.innerHTML = '<span style="color:#d93025">✗ ' + (d.message||'失败') + '</span>'; }
-    // 刷新状态
-    setTimeout(load, 500);
+    if(d.ok){ subsEl.innerHTML = '<span style="color:#1a9e4e">✓ 已更新 ' + (d.nodes||'') + ' 节点</span>'; }
+    else { subsEl.innerHTML = '<span style="color:#d93025">✗ ' + (d.message||'失败') + '</span>'; }
+    setTimeout(load, 900);
   }catch(e){
-    res.innerHTML = '<span style="color:#d93025">✗ 请求失败</span>';
+    subsEl.innerHTML = '<span style="color:#d93025">✗ 请求失败</span>';
   }
-  btn.disabled = false; btn.textContent = '获取订阅';
+  subUpdating = false;
 }
 async function load(){
   try{
@@ -168,13 +167,27 @@ async function load(){
     document.getElementById('mode').textContent = d.mode||'—';
     document.getElementById('nodes').textContent = d.proxies||'—';
     document.getElementById('rules').textContent = d.rules||'—';
-    // 订阅状态（完整配置模式）
+    // 订阅状态: 未配置灰 / 有节点绿 / 无节点灰(可点击重试, 首次自动获取)
     const subsEl = document.getElementById('subs');
+    subsEl.style.cursor = 'pointer';
+    subsEl.onclick = updateSub;
+    subsEl.title = '点击手动获取订阅';
     if(d.subscription_configured){
       const name = d.subscription_name || '订阅配置';
-      subsEl.innerHTML = '<span style="color:#1a9e4e">' + name + ' · 已启用</span>';
+      const n = d.sub_proxies || 0;
+      if(n > 0){
+        subsEl.innerHTML = '<span style="color:#1a9e4e">' + name + ' · 已启用 · ' + n + '节点</span>';
+        window._subAuto = true;
+      } else {
+        subsEl.innerHTML = '<span style="color:#999">' + name + ' · 未获取到节点</span>';
+        if(!window._subAuto){
+          window._subAuto = true;
+          setTimeout(updateSub, 400);
+        }
+      }
     } else {
-      subsEl.textContent = '未配置';
+      subsEl.innerHTML = '<span style="color:#999">未配置</span>';
+      window._subAuto = true;
     }
   }catch(e){}
 }
@@ -284,6 +297,24 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     "updated_at": prov.get("updatedAt", prov.get("updated_at", "")),
                     "error": prov.get("error", ""),
                 })
+            # 订阅节点数 (完整配置模式: config.yaml 的 proxies 段节点数)
+            sub_proxies = 0
+            if sub_configured:
+                try:
+                    import re as _re3
+                    with open(os.path.join(DATA_DIR, "config.yaml"), encoding="utf-8") as f:
+                        _cfg = f.read()
+                    _lines = _cfg.splitlines()
+                    _in = False
+                    for _ln in _lines:
+                        if _ln.startswith("proxies:"):
+                            _in = True; continue
+                        if _in and _ln.startswith("proxy-groups:"):
+                            break
+                        if _in and _re3.match(r"^\s*-\s*name:", _ln):
+                            sub_proxies += 1
+                except Exception:
+                    pass
             data = {
                 "ok": ver is not None,
                 "app_version": APP_VERSION,
@@ -294,6 +325,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 "subscriptions": subs,
                 "subscription_configured": sub_configured,
                 "subscription_name": sub_name,
+                "sub_proxies": sub_proxies,
             }
             body = json.dumps(data).encode()
             self._send(200, body, "application/json; charset=utf-8")
