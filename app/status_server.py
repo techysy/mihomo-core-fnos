@@ -13,7 +13,30 @@ import socketserver
 PORT = int(os.environ.get("MIHOMO_STATUS_PORT", "9092"))
 CLASH_API = os.environ.get("MIHOMO_CLASH_API", "http://127.0.0.1:9090")
 APP_VERSION = os.environ.get("MIHOMO_APP_VERSION", "1.0.6")
-DATA_DIR = os.environ.get("MIHOMO_DATA_DIR", "/vol4/@appdata/mihomo-core")
+def _default_data_dir():
+    """从 status_server.py 所在位置推导数据目录（避免硬编码存储卷路径）。
+    脚本位置: <vol>/@appcenter/<app>[/target]/status_server.py
+    数据目录: <vol>/@appdata/<app>
+    """
+    script = os.path.abspath(__file__)
+    parts = script.split(os.sep)
+    if "@appcenter" in parts:
+        idx = parts.index("@appcenter")
+        if idx + 1 < len(parts):
+            vol = os.sep.join(parts[:idx])
+            app = parts[idx + 1]
+            if vol and app:
+                return os.path.join(vol, "@appdata", app)
+    # 兜底: 从当前目录向上找 @appdata/<app>
+    d = os.path.dirname(script)
+    for _ in range(4):
+        if os.path.basename(os.path.dirname(d)) == "@appdata":
+            return os.path.dirname(d)
+        d = os.path.dirname(d)
+    return os.path.join(os.path.dirname(script), "@appdata")
+
+
+DATA_DIR = os.environ.get("MIHOMO_DATA_DIR") or _default_data_dir()
 
 BRAND = "#ff6a00"  # 橙色主题
 

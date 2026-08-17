@@ -140,7 +140,7 @@ start_status() {
     if [ -f "${STATUS_PID_FILE}" ] && kill -0 "$(cat "${STATUS_PID_FILE}")" 2>/dev/null; then
         return 0
     fi
-    MIHOMO_APP_VERSION="${APP_VERSION:-1.0.2}" MIHOMO_STATUS_PORT="${STATUS_PORT}" nohup /usr/bin/python3 "${STATUS_BIN}" >> "${LOG}" 2>&1 &
+    MIHOMO_APP_VERSION="${APP_VERSION:-1.0.2}" MIHOMO_STATUS_PORT="${STATUS_PORT}" MIHOMO_DATA_DIR="${DATA_DIR}" nohup /usr/bin/python3 "${STATUS_BIN}" >> "${LOG}" 2>&1 &
     echo $! > "${STATUS_PID_FILE}"
     log "status page started on :${STATUS_PORT}"
 }
