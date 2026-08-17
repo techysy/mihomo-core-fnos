@@ -12,7 +12,7 @@ import socketserver
 
 PORT = int(os.environ.get("MIHOMO_STATUS_PORT", "9092"))
 CLASH_API = os.environ.get("MIHOMO_CLASH_API", "http://127.0.0.1:9090")
-APP_VERSION = os.environ.get("MIHOMO_APP_VERSION", "1.0.5")
+APP_VERSION = os.environ.get("MIHOMO_APP_VERSION", "1.0.6")
 DATA_DIR = os.environ.get("MIHOMO_DATA_DIR", "/vol4/@appdata/mihomo-core")
 
 BRAND = "#ff6a00"  # 橙色主题
@@ -79,7 +79,8 @@ PAGE = """<!doctype html>
     <div class="row"><span class="k">模式</span><span id="mode" class="v">—</span></div>
     <div class="row"><span class="k">节点数</span><span id="nodes" class="v">—</span></div>
     <div class="row"><span class="k">规则数</span><span id="rules" class="v">—</span></div>
-    <div class="row"><span class="k">订阅状态</span><span id="subs" class="v">未配置</span></div>
+        <div class="row"><span class="k">订阅</span><span id="subs" class="v">未配置</span></div>
+    <div class="row"><span class="k">手动获取订阅</span><span class="v"><button id="subBtn" onclick="updateSub()" style="background:%(BRAND)s;color:#fff;border:none;border-radius:6px;padding:5px 16px;font-size:13px;font-weight:600;cursor:pointer">获取订阅</button> <span id="subResult" style="font-size:12px;color:#888"></span></span></div>
     <div class="row"><span class="k">混合代理端口</span><span class="v">7890</span></div>
   </div>
   <div class="card meta-tip" style="text-align:center;color:#888;font-size:13px;line-height:1.7">
@@ -115,6 +116,23 @@ function showCopied(tip){
   if(!tip) return;
   tip.textContent = '已复制 ✓';
   setTimeout(function(){ tip.textContent = ''; }, 2000);
+}
+async function updateSub(){
+  var btn = document.getElementById('subBtn');
+  var res = document.getElementById('subResult');
+  btn.disabled = true; btn.textContent = '获取中…';
+  res.textContent = '';
+  try{
+    const r = await fetch('/api/update_subscription');
+    const d = await r.json();
+    if(d.ok){ res.innerHTML = '<span style="color:#1a9e4e">✓ 已更新 ' + (d.nodes||'') + ' 节点</span>'; }
+    else { res.innerHTML = '<span style="color:#d93025">✗ ' + (d.message||'失败') + '</span>'; }
+    // 刷新状态
+    setTimeout(load, 500);
+  }catch(e){
+    res.innerHTML = '<span style="color:#d93025">✗ 请求失败</span>';
+  }
+  btn.disabled = false; btn.textContent = '获取订阅';
 }
 async function load(){
   try{
@@ -163,8 +181,57 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _update_subscription(self):
+        """拉取订阅 → 写 config.yaml → 热重载 mihomo (Clash API PUT /configs)."""
+        import re as _re, urllib.error
+        sub_path = os.path.join(DATA_DIR, "subscription_url")
+        if not os.path.isfile(sub_path):
+            return {"ok": False, "message": "未配置订阅链接 (subscription_url 不存在)"}
+        try:
+            with open(sub_path, encoding="utf-8") as f:
+                subdata = f.read().strip()
+            url = subdata.split("|", 1)[1] if "|" in subdata else subdata
+            url = url.strip()
+            if not url:
+                return {"ok": False, "message": "订阅链接为空"}
+            req = urllib.request.Request(url, headers={"User-Agent": "clash.meta", "Accept": "application/yaml"})
+            with urllib.request.urlopen(req, timeout=40) as r:
+                data = r.read().decode("utf-8", errors="replace")
+            if not data.strip():
+                return {"ok": False, "message": "订阅返回为空"}
+            # 强制本应用端口
+            data = _re.sub(r"(?m)^mixed-port:.*$", "mixed-port: 7890", data)
+            data = _re.sub(r"(?m)^port:.*$", "port: 7890", data)
+            data = _re.sub(r"(?m)^socks-port:.*$", "socks-port: 7890", data)
+            data = _re.sub(r"(?m)^external-controller:.*$", "external-controller: '0.0.0.0:9090'", data)
+            cfg_path = os.path.join(DATA_DIR, "config.yaml")
+            open(cfg_path, "w", encoding="utf-8").write(data)
+            # 热重载 mihomo (不重启进程)
+            reloaded = False
+            try:
+                body = json.dumps({"path": cfg_path}).encode()
+                req2 = urllib.request.Request(CLASH_API + "/configs?force=true", data=body,
+                                              headers={"Content-Type": "application/json", "User-Agent": "mihomo-core"},
+                                              method="PUT")
+                with urllib.request.urlopen(req2, timeout=10) as resp:
+                    reloaded = resp.status in (200, 204)
+            except Exception as e:
+                return {"ok": False, "message": "配置已写入但重载失败: %s" % e, "nodes": len(data.split(chr(10)))}
+            # 统计节点数
+            import re as _re2
+            nodes = len(_re2.findall(r"^\s*-\s*name:", data, _re2.M))
+            return {"ok": True, "message": "订阅更新成功", "nodes": nodes, "reloaded": reloaded}
+        except urllib.error.HTTPError as e:
+            return {"ok": False, "message": "拉取失败 HTTP %s" % e.code}
+        except Exception as e:
+            return {"ok": False, "message": "%s" % e}
+
     def do_GET(self):  # noqa: N802
-        if self.path == "/api/status":
+        if self.path == "/api/update_subscription":
+            result = self._update_subscription()
+            body = json.dumps(result).encode()
+            self._send(200, body, "application/json; charset=utf-8")
+        elif self.path == "/api/status":
             ver = clash("/version")
             cfg = clash("/configs")
             proxies = clash("/proxies")

@@ -2,9 +2,9 @@
 
 ## [1.0.6] - 2026-08-17
 
-- **重新打包**（朋友设备部署用）：基于 1.0.5，内置 proxy-providers 动态订阅机制（App Center 设置填订阅链接 → mihomo 自动定期拉取，interval 3600s + 重启时拉取）
+- **状态页新增「手动获取订阅」按钮**：点按钮触发订阅拉取（clash.meta UA → 完整 YAML）→ 写 config.yaml → Clash API 热重载，无需重启进程；显示拉取节点数
+- **前端版本号对齐**：status_server.py / cmd/main 的 APP_VERSION 默认值对齐到 1.0.6，修复版本号落后 1 的问题
 - 内置 mihomo Meta v1.19.29 (x86_64) + geoip 预置
-- 状态页 APP_VERSION 默认值对齐 1.0.6
 
 ## [1.0.5] - 2026-08-13
 
