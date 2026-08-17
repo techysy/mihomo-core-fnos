@@ -7,6 +7,13 @@ APP_DIR="${TRIM_APPDEST:-/var/apps/${APP_NAME}}"
 DATA_DIR="${TRIM_PKGVAR:-/vol4/@appdata/${APP_NAME}}"
 MIHOMO_BIN="${APP_DIR}/mihomo"
 STATUS_BIN="${APP_DIR}/status_server.py"
+# 兼容 fnOS 各种 TRIM_APPDEST：实际文件可能在 APP_DIR 或其 target 子目录
+if [ ! -f "${MIHOMO_BIN}" ] && [ -f "${APP_DIR}/target/mihomo" ]; then
+    MIHOMO_BIN="${APP_DIR}/target/mihomo"
+fi
+if [ ! -f "${STATUS_BIN}" ] && [ -f "${APP_DIR}/target/status_server.py" ]; then
+    STATUS_BIN="${APP_DIR}/target/status_server.py"
+fi
 STATUS_PORT="${MIHOMO_STATUS_PORT:-9092}"
 APP_VERSION="${MIHOMO_APP_VERSION:-1.0.6}"
 LOG="${DATA_DIR}/mihomo.log"
