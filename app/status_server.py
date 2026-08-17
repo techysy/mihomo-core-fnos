@@ -12,7 +12,7 @@ import socketserver
 
 PORT = int(os.environ.get("MIHOMO_STATUS_PORT", "9092"))
 CLASH_API = os.environ.get("MIHOMO_CLASH_API", "http://127.0.0.1:9090")
-APP_VERSION = os.environ.get("MIHOMO_APP_VERSION", "1.0.4")
+APP_VERSION = os.environ.get("MIHOMO_APP_VERSION", "1.0.5")
 DATA_DIR = os.environ.get("MIHOMO_DATA_DIR", "/vol4/@appdata/mihomo-core")
 
 BRAND = "#ff6a00"  # 橙色主题
@@ -39,7 +39,7 @@ PAGE = """<!doctype html>
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
   body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f5f6f8;color:#1a1a1a;padding:24px;display:flex;justify-content:center;align-items:center;min-height:100vh}
-  .wrap{max-width:1200px}
+  .wrap{width:45%%;max-width:1200px;transform:translateY(-5%%)}
   .brand{font-size:22px;font-weight:700;color:#1a1a1a;margin-bottom:4px}
   .brand span{color:%(BRAND)s}
   .brand .ver{font-size:12px;color:#888;font-weight:600;margin-left:6px}
@@ -53,6 +53,21 @@ PAGE = """<!doctype html>
   .ok{background:#e6f6ec;color:#1a9e4e}
   .down{background:#fdeaea;color:#d93025}
   .h{font-size:14px;font-weight:700;margin-bottom:10px}
+  /* 移动端简洁文案默认隐藏，桌面端完整文案 */
+  .meta-short{display:none}
+  @media (max-width:600px){
+    body{padding:16px}
+    .wrap{width:90%%;transform:translateY(-13%%)}
+    .brand{font-size:19px}
+    .card{padding:14px}
+    .row{padding:7px 0}
+    .k,.v{font-size:13px}
+    /* 说明文字移动端适配：避免被挤成多排 */
+    .card .meta-tip{font-size:12px;line-height:1.6}
+    /* 移动端：隐藏完整文案，显示简洁文案 */
+    .meta-full{display:none}
+    .meta-short{display:block}
+  }
 </style></head><body>
 <div class="wrap">
   <div class="brand">Mihomo <span>Core</span> <span class="ver">v%(APP_VERSION)s</span></div>
@@ -67,9 +82,11 @@ PAGE = """<!doctype html>
     <div class="row"><span class="k">订阅状态</span><span id="subs" class="v">未配置</span></div>
     <div class="row"><span class="k">混合代理端口</span><span class="v">7890</span></div>
   </div>
-  <div class="card" style="text-align:center;color:#888;font-size:13px;line-height:1.7">
-    <a href="https://github.com/techysy/metacubexd-fnos" target="_blank" rel="noopener" style="color:#ff6a00;font-weight:600;text-decoration:none" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">MetaCubeXD</a> 面板用于控制节点。若未安装，可点击橙色文字下载<br>
-    已安装则在面板中填 API 地址 <a href="javascript:void(0)" onclick="copyApi()" title="点击复制" style="color:#ff6a00;font-weight:600;text-decoration:none;cursor:pointer" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">http://%(HOST)s:9090</a> <span id="copiedTip" style="color:#1a9e4e;font-size:12px"></span>
+  <div class="card meta-tip" style="text-align:center;color:#888;font-size:13px;line-height:1.7">
+    <span class="meta-full"><a href="https://github.com/techysy/metacubexd-fnos" target="_blank" rel="noopener" style="color:#ff6a00;font-weight:600;text-decoration:none" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">MetaCubeXD</a> 面板用于控制节点 若未安装，可点击橙色文字下载<br>
+    已安装则在面板中填 API 地址 <a href="javascript:void(0)" onclick="copyApi()" title="点击复制" style="color:#ff6a00;font-weight:600;text-decoration:none;cursor:pointer" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">http://%(HOST)s:9090</a> <span id="copiedTip" style="color:#1a9e4e;font-size:12px"></span></span>
+    <span class="meta-short"><a href="https://github.com/techysy/metacubexd-fnos" target="_blank" rel="noopener" style="color:#ff6a00;font-weight:600;text-decoration:none" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">MetaCubeXD</a> 面板用于控制节点<br>
+    API 地址 <a href="javascript:void(0)" onclick="copyApi()" title="点击复制" style="color:#ff6a00;font-weight:600;text-decoration:none;cursor:pointer" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">http://%(HOST)s:9090</a> <span id="copiedTip2" style="color:#1a9e4e;font-size:12px"></span></span>
   </div>
 </div>
 <script>
@@ -77,10 +94,12 @@ PAGE = """<!doctype html>
 function copyApi(){
   var url = 'http://%(HOST)s:9090';
   var tip = document.getElementById('copiedTip');
+  var tip2 = document.getElementById('copiedTip2');
   if(navigator.clipboard && navigator.clipboard.writeText){
-    navigator.clipboard.writeText(url).then(function(){ showCopied(tip); }, function(){ fallbackCopy(url, tip); });
+    navigator.clipboard.writeText(url).then(function(){ showCopied(tip); showCopied(tip2); }, function(){ fallbackCopy(url, tip); fallbackCopy(url, tip2); });
   } else {
     fallbackCopy(url, tip);
+    fallbackCopy(url, tip2);
   }
 }
 function fallbackCopy(text, tip){
