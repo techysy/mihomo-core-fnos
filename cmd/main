@@ -3,6 +3,9 @@
 # v1.1.1 — 加固生命周期脚本，增加错误日志
 set -uo pipefail
 
+# stderr 也写到日志（排查 fnOS 升级报错）
+exec 2>>"${DATA_DIR:-/vol4/@appdata/mihomo-core}/mihomo.log" 2>/dev/null || true
+
 APP_NAME="${TRIM_APPNAME:-mihomo-core}"
 APP_DIR="${TRIM_APPDEST:-/var/apps/${APP_NAME}}"
 DATA_DIR="${TRIM_PKGVAR:-/vol4/@appdata/${APP_NAME}}"
@@ -227,10 +230,15 @@ status() {
     [ "${core_ok}" = "yes" ]
 }
 
-case "${1:-start}" in
-    start) start ;;
-    stop)  stop  ;;
-    status) status ;;
+# 记录所有调用参数到日志（排查 fnOS 升级流程）
+CMD_ARG="${1:-start}"
+log "cmd/main called with: ${CMD_ARG}"
+
+case "${CMD_ARG}" in
+    start)   start ;;
+    stop)    stop   ;;
+    status)  status ;;
     restart) stop; sleep 1; start ;;
-    *) echo "Usage: $0 {start|stop|status|restart}"; exit 1 ;;
+    upgrade) log "upgrade: delegated to start"; start ;;
+    *)       log "unknown command: ${CMD_ARG}"; echo "Usage: $0 {start|stop|status|restart}"; exit 0 ;;
 esac
