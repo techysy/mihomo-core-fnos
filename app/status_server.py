@@ -176,7 +176,7 @@ async function load(){
       const name = d.subscription_name || '订阅配置';
       const n = d.sub_proxies || 0;
       if(n > 0){
-        subsEl.innerHTML = '<span style="color:#1a9e4e">' + name + ' · 已启用 · ' + n + '节点</span>';
+        subsEl.innerHTML = '<span style="color:#1a9e4e">' + name + ' · 已启用</span>';
         window._subAuto = true;
       } else {
         subsEl.innerHTML = '<span style="color:#999">' + name + ' · 未获取到节点</span>';
