@@ -1,2 +1,32 @@
 #!/bin/bash
+# upgrade_init — 升级前：停止旧进程
+APP_NAME="${TRIM_APPNAME:-mihomo-core}"
+DATA_DIR="${TRIM_PKGVAR:-/vol4/@appdata/${APP_NAME}}"
+LOG="${DATA_DIR}/mihomo.log"
+mkdir -p "${DATA_DIR}" 2>/dev/null || true
+echo "[$(date '+%F %T')] upgrade_init: starting" >> "${LOG}" 2>/dev/null || true
+# 杀掉旧进程（优雅停止）
+PID_FILE="${DATA_DIR}/mihomo.pid"
+if [ -f "${PID_FILE}" ]; then
+    pid=$(cat "${PID_FILE}" 2>/dev/null) || true
+    if [ -n "${pid}" ] && kill -0 "${pid}" 2>/dev/null; then
+        kill "${pid}" 2>/dev/null || true
+        sleep 1
+        kill -9 "${pid}" 2>/dev/null || true
+    fi
+    rm -f "${PID_FILE}" 2>/dev/null || true
+fi
+pkill -9 -f "${APP_NAME}/mihomo" 2>/dev/null || true
+# 清理状态页
+STATUS_PID="${DATA_DIR}/status.pid"
+if [ -f "${STATUS_PID}" ]; then
+    spid=$(cat "${STATUS_PID}" 2>/dev/null) || true
+    if [ -n "${spid}" ]; then
+        kill "${spid}" 2>/dev/null || true
+        kill -9 "${spid}" 2>/dev/null || true
+    fi
+    rm -f "${STATUS_PID}" 2>/dev/null || true
+fi
+pkill -9 -f "status_server" 2>/dev/null || true
+echo "[$(date '+%F %T')] upgrade_init: done" >> "${LOG}" 2>/dev/null || true
 exit 0

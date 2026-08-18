@@ -1,6 +1,6 @@
 #!/bin/bash
 # mihomo-core — 只运行 mihomo 内核（自启服务），用 MetaCubeXD 面板控制
-# v1.1.0 — 修复 status page 启动遗漏 / set -e 导致提前退出 / PID 文件可靠性
+# v1.1.1 — 加固生命周期脚本，增加错误日志
 set -uo pipefail
 
 APP_NAME="${TRIM_APPNAME:-mihomo-core}"
@@ -20,71 +20,69 @@ APP_VERSION="${MIHOMO_APP_VERSION:-1.1.1}"
 LOG="${DATA_DIR}/mihomo.log"
 PID_FILE="${DATA_DIR}/mihomo.pid"
 STATUS_PID_FILE="${DATA_DIR}/status.pid"
-# 运行时配置（首次启动从安装目录复制，之后用户可在面板改）
 CORE_CONFIG="${DATA_DIR}/config.yaml"
 
-mkdir -p "${DATA_DIR}"
+mkdir -p "${DATA_DIR}" 2>/dev/null || true
 
-log() { echo "[$(date '+%F %T')] $*" >> "${LOG}"; }
+log() { echo "[$(date '+%F %T')] $*" >> "${LOG}" 2>/dev/null || true; }
+elog() { echo "[$(date '+%F %T')] ERROR: $*" >> "${LOG}" 2>/dev/null; echo "ERROR: $*" >&2; }
 
 # ── 检查端口是否被占用（非本脚本启动的进程） ─────────────
 port_occupied() {
-    local port="$1"
-    # 用 /proc 判断占用端口的进程是否是 mihomo 或 status_server
-    local pid
-    pid=$(lsof -ti :"${port}" 2>/dev/null || true)
+    local port="$1" pid=""
+    pid=$(lsof -ti :"${port}" 2>/dev/null) || true
     if [ -z "${pid}" ]; then
-        return 1  # 端口空闲
+        return 1
     fi
-    # 端口被占用，检查是否是我们的进程
-    local cmd
-    cmd=$(ps -p "${pid}" -o args= 2>/dev/null || true)
-    if echo "${cmd}" | grep -qE 'mihomo|status_server'; then
-        return 0  # 是我们的进程占用
+    local cmd=""
+    cmd=$(ps -p "${pid}" -o args= 2>/dev/null) || true
+    if [ -n "${cmd}" ] && echo "${cmd}" | grep -qE 'mihomo|status_server'; then
+        return 0
     fi
-    return 2  # 被其他进程占用
+    return 2
 }
 
 ensure_config() {
-    # 首次启动: 把默认 config.yaml 复制到数据目录
     if [ ! -f "${CORE_CONFIG}" ]; then
         if [ -f "${APP_DIR}/config.yaml" ]; then
-            cp "${APP_DIR}/config.yaml" "${CORE_CONFIG}"
-            echo "initialized config.yaml" >> "${LOG}"
+            cp "${APP_DIR}/config.yaml" "${CORE_CONFIG}" 2>/dev/null
+            log "initialized config.yaml"
         fi
     fi
-    # 应用设置配置的订阅链接: 写入 config.yaml 的 proxy-providers
     if [ -f "${DATA_DIR}/subscription_url" ]; then
-        SUB_URL="$(cat "${DATA_DIR}/subscription_url")"
-        apply_subscription "${SUB_URL}"
+        local subdata=""
+        subdata=$(cat "${DATA_DIR}/subscription_url" 2>/dev/null) || true
+        if [ -n "${subdata}" ]; then
+            apply_subscription "${subdata}"
+        fi
     fi
-    # 预置 geoip 数据 (避免 mihomo 走公网下载失败)
     if [ -f "${APP_DIR}/geoip.metadb" ]; then
-        cp -f "${APP_DIR}/geoip.metadb" "${DATA_DIR}/geoip.metadb"
-        echo "preseed geoip.metadb" >> "${LOG}"
+        cp -f "${APP_DIR}/geoip.metadb" "${DATA_DIR}/geoip.metadb" 2>/dev/null || true
+        log "preseed geoip.metadb"
     fi
-    # 预置 geosite (可选)
     if [ ! -f "${DATA_DIR}/geosite.dat" ] && [ -f "${APP_DIR}/geosite.dat" ]; then
-        cp "${APP_DIR}/geosite.dat" "${DATA_DIR}/geosite.dat"
-        echo "preseed geosite.dat" >> "${LOG}"
+        cp "${APP_DIR}/geosite.dat" "${DATA_DIR}/geosite.dat" 2>/dev/null || true
+        log "preseed geosite.dat"
     fi
 }
 
-# 拉取订阅作为完整 config.yaml（节点+规则+分组全生效），并强制本应用端口
 apply_subscription() {
     local subdata="$1"
     if [ -z "${subdata}" ]; then
         return 0
     fi
-    local url
+    local url=""
     if [[ "${subdata}" == *"|"* ]]; then
         url="${subdata#*|}"
     else
         url="${subdata}"
     fi
     url="$(echo "${url}" | tr -d '[:space:]')"
-    echo "[$(date '+%F %T')] apply_subscription: pulling ${url}" >> "${LOG}"
-    python3 - "${url}" "${CORE_CONFIG}" <<'PYEOF'
+    if [ -z "${url}" ]; then
+        return 0
+    fi
+    log "apply_subscription: pulling ${url}"
+    python3 - "${url}" "${CORE_CONFIG}" <<'PYEOF' 2>/dev/null
 import sys, re, urllib.request
 url, p = sys.argv[1], sys.argv[2]
 try:
@@ -102,33 +100,36 @@ try:
 except Exception as e:
     print("ERR", e); sys.exit(1)
 PYEOF
+    return 0
 }
 
 # ── 启动 mihomo 内核 ─────────────────────────────────────
 start() {
     local core_running=no
 
-    # 1. 检查 PID 文件指向的进程是否存活
-    if [ -f "${PID_FILE}" ] && kill -0 "$(cat "${PID_FILE}")" 2>/dev/null; then
-        core_running=yes
-        log "already running (pid $(cat "${PID_FILE}"))"
+    if [ -f "${PID_FILE}" ]; then
+        local old_pid=""
+        old_pid=$(cat "${PID_FILE}" 2>/dev/null) || true
+        if [ -n "${old_pid}" ] && kill -0 "${old_pid}" 2>/dev/null; then
+            core_running=yes
+            log "already running (pid ${old_pid})"
+        else
+            rm -f "${PID_FILE}" 2>/dev/null || true
+        fi
     fi
 
-    # 2. 检查 Clash API 端口（覆盖 PID 文件丢失 / 旧进程残留的情况）
     if [ "${core_running}" = "no" ] && curl -sf "http://127.0.0.1:9090/version" >/dev/null 2>&1; then
         core_running=yes
         log "port 9090 already serving — treating as running"
     fi
 
-    # 3. 核心未运行 → 启动
     if [ "${core_running}" = "no" ]; then
-        ensure_config
+        ensure_config || true
         nohup "${MIHOMO_BIN}" -d "${DATA_DIR}" -f "${CORE_CONFIG}" >> "${LOG}" 2>&1 &
         echo $! > "${PID_FILE}"
-        log "mihomo started (pid $(cat "${PID_FILE}"))"
+        log "mihomo started (pid $(cat "${PID_FILE}" 2>/dev/null))"
 
-        # 等待内核就绪（最多 20s）
-        local ready=no
+        local ready=no i=""
         for i in $(seq 1 20); do
             if curl -sf "http://127.0.0.1:9090/version" >/dev/null 2>&1; then
                 log "core ready on :9090 after ${i}s"
@@ -142,45 +143,55 @@ start() {
         fi
     fi
 
-    # 4. 无论核心是否已运行，都确保状态页启动（修复 status_page=no）
     start_status
 }
 
 # ── 停止 ─────────────────────────────────────────────────
 stop() {
+    log "stop: begin"
+    local pid=""
+
+    # 1. 读取 PID 文件
     if [ -f "${PID_FILE}" ]; then
-        local PID
-        PID=$(cat "${PID_FILE}")
-        kill "${PID}" 2>/dev/null || true
+        pid=$(cat "${PID_FILE}" 2>/dev/null) || true
+    fi
+
+    # 2. 优雅停止
+    if [ -n "${pid}" ] && kill -0 "${pid}" 2>/dev/null; then
+        log "stop: killing pid ${pid}"
+        kill "${pid}" 2>/dev/null || true
+        local i=""
         for i in 1 2 3; do
-            if ! kill -0 "${PID}" 2>/dev/null; then
-                rm -f "${PID_FILE}"
-                log "stopped (pid ${PID})"
-                break
-            fi
+            kill -0 "${pid}" 2>/dev/null || break
             sleep 1
         done
-        kill -9 "${PID}" 2>/dev/null || true
-        rm -f "${PID_FILE}"
+        # 强杀
+        kill -9 "${pid}" 2>/dev/null || true
+        log "stop: stopped pid ${pid}"
     fi
+    rm -f "${PID_FILE}" 2>/dev/null || true
+
+    # 3. 停止状态页
     stop_status
-    # 彻底清理: 杀掉一切残留
-    pkill -9 -f "${MIHOMO_BIN}" 2>/dev/null || true
-    pkill -9 -f "status_server.py" 2>/dev/null || true
-    # 释放端口
-    command -v fuser >/dev/null 2>&1 && { fuser -k 9090/tcp 7890/tcp ${STATUS_PORT}/tcp 2>/dev/null || true; }
-    log "stop complete"
+
+    # 4. 彻底清理残留（pkill 匹配进程名，不会杀本脚本）
+    pkill -9 -f "${APP_DIR}/mihomo" 2>/dev/null || true
+    pkill -9 -f "status_server" 2>/dev/null || true
+
+    # 5. 释放端口
+    fuser -k 9090/tcp 7890/tcp ${STATUS_PORT}/tcp 2>/dev/null || true
+
+    log "stop: complete"
+    return 0
 }
 
 # ── 状态页服务 (:9092) ─────────────────────────────
 start_status() {
-    # 检查状态页是否已在运行
-    if [ -f "${STATUS_PID_FILE}" ] && kill -0 "$(cat "${STATUS_PID_FILE}")" 2>/dev/null; then
+    if [ -f "${STATUS_PID_FILE}" ] && kill -0 "$(cat "${STATUS_PID_FILE}" 2>/dev/null)" 2>/dev/null; then
         return 0
     fi
-    # 检查端口是否被占用（可能是旧进程残留）
     if port_occupied "${STATUS_PORT}"; then
-        log "status page port ${STATUS_PORT} occupied by existing process, skipping start"
+        log "status page port ${STATUS_PORT} occupied, skipping start"
         return 0
     fi
     MIHOMO_APP_VERSION="${APP_VERSION}" MIHOMO_STATUS_PORT="${STATUS_PORT}" MIHOMO_DATA_DIR="${DATA_DIR}" \
@@ -190,21 +201,24 @@ start_status() {
 }
 
 stop_status() {
+    local spid=""
     if [ -f "${STATUS_PID_FILE}" ]; then
-        kill "$(cat "${STATUS_PID_FILE}")" 2>/dev/null || true
-        rm -f "${STATUS_PID_FILE}"
+        spid=$(cat "${STATUS_PID_FILE}" 2>/dev/null) || true
     fi
-    pkill -f "status_server.py" 2>/dev/null || true
+    if [ -n "${spid}" ] && kill -0 "${spid}" 2>/dev/null; then
+        kill "${spid}" 2>/dev/null || true
+    fi
+    rm -f "${STATUS_PID_FILE}" 2>/dev/null || true
 }
 
 status() {
     local core_ok=no web_ok=no
-    if [ -f "${PID_FILE}" ] && kill -0 "$(cat "${PID_FILE}")" 2>/dev/null; then
+    if [ -f "${PID_FILE}" ] && kill -0 "$(cat "${PID_FILE}" 2>/dev/null)" 2>/dev/null; then
         core_ok=yes
     elif curl -sf "http://127.0.0.1:9090/version" >/dev/null 2>&1; then
         core_ok=yes
     fi
-    if [ -f "${STATUS_PID_FILE}" ] && kill -0 "$(cat "${STATUS_PID_FILE}")" 2>/dev/null; then
+    if [ -f "${STATUS_PID_FILE}" ] && kill -0 "$(cat "${STATUS_PID_FILE}" 2>/dev/null)" 2>/dev/null; then
         web_ok=yes
     elif curl -sf "http://127.0.0.1:${STATUS_PORT}/" >/dev/null 2>&1; then
         web_ok=yes
@@ -215,7 +229,7 @@ status() {
 
 case "${1:-start}" in
     start) start ;;
-    stop) stop ;;
+    stop)  stop  ;;
     status) status ;;
     restart) stop; sleep 1; start ;;
     *) echo "Usage: $0 {start|stop|status|restart}"; exit 1 ;;

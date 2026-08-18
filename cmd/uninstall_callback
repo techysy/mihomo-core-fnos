@@ -1,13 +1,19 @@
 #!/bin/bash
-set -uo pipefail
-DATA_DIR="${TRIM_PKGVAR:-/vol4/@appdata/${APP_NAME:-mihomo-core}}"
+# uninstall_callback — 彻底清理 mihomo 进程和端口
+APP_NAME="${TRIM_APPNAME:-mihomo-core}"
+DATA_DIR="${TRIM_PKGVAR:-/vol4/@appdata/${APP_NAME}}"
+LOG="${DATA_DIR}/mihomo.log"
+echo "[$(date '+%F %T')] uninstall: cleaning up" >> "${LOG}" 2>/dev/null || true
 
-# 卸载时彻底清理残留进程 (避免端口被占用)
+# 杀进程
 pkill -9 -f "mihomo" 2>/dev/null || true
-pkill -9 -f "status_server.py" 2>/dev/null || true
-pkill -9 -f "mihomo-core" 2>/dev/null || true
-command -v fuser >/dev/null 2>&1 && { fuser -k 9090/tcp 7890/tcp 9092/tcp 2>/dev/null || true; }
+pkill -9 -f "status_server" 2>/dev/null || true
 
-echo "[$(date '+%F %T')] mihomo-core uninstalled (cleanup done)" >> "${DATA_DIR}/install.log" 2>/dev/null
-rm -f "${DATA_DIR}/mihomo.pid" "${DATA_DIR}/status.pid"
+# 释放端口
+fuser -k 9090/tcp 7890/tcp 9092/tcp 2>/dev/null || true
+
+# 清理 PID 文件
+rm -f "${DATA_DIR}/mihomo.pid" "${DATA_DIR}/status.pid" 2>/dev/null || true
+
+echo "[$(date '+%F %T')] uninstall: done" >> "${LOG}" 2>/dev/null || true
 exit 0
