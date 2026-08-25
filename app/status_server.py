@@ -12,7 +12,7 @@ import socketserver
 
 PORT = int(os.environ.get("MIHOMO_STATUS_PORT", "9092"))
 CLASH_API = os.environ.get("MIHOMO_CLASH_API", "http://127.0.0.1:9090")
-APP_VERSION = os.environ.get("MIHOMO_APP_VERSION", "1.1.1")
+APP_VERSION = os.environ.get("MIHOMO_APP_VERSION", "1.1.2")
 def _default_data_dir():
     """从 status_server.py 所在位置推导数据目录（避免硬编码存储卷路径）。
     脚本位置: <vol>/@appcenter/<app>[/target]/status_server.py
@@ -93,7 +93,7 @@ PAGE = """<!doctype html>
   }
 </style></head><body>
 <div class="wrap">
-  <div class="brand">Mihomo <span>Core</span> <span class="ver">v%(APP_VERSION)s</span></div>
+  <div class="brand">Mihomo <span>Core</span> <span class="ver" id="appVer" style="cursor:default">v%(APP_VERSION)s</span> <span class="ver" id="coreVerWrap" style="cursor:pointer" title="点击检查并更新内核" onclick="updateCore()">· 内核 <span id="coreVer">…</span></span></div>
   <div class="sub">mihomo 内核代理服务 · mixed 7890 · Clash API 9090</div>
   <div class="card">
     <div class="h">内核状态</div>
@@ -140,6 +140,36 @@ function showCopied(tip){
   setTimeout(function(){ tip.textContent = ''; }, 2000);
 }
 var subUpdating = false;
+var coreUpdating = false;
+async function updateCore(){
+  if(coreUpdating) return;
+  coreUpdating = true;
+  var wrap = document.getElementById('coreVerWrap');
+  var el = document.getElementById('coreVer');
+  if(!confirm('检查并更新 mihomo 内核到最新版？\n更新过程会重启内核（代理中断几秒）')) { coreUpdating = false; return; }
+  wrap.style.color = '#888';
+  el.textContent = '更新中…';
+  try{
+    const r = await fetch('/api/update_core');
+    const d = await r.json();
+    if(d.ok){
+      el.textContent = 'v' + (d.version || '?');
+      wrap.style.color = '#1a9e4e';
+      alert(d.message || '更新完成');
+      if(!d.uptodate) setTimeout(load, 2500);
+    } else {
+      el.textContent = '更新失败';
+      wrap.style.color = '#d93025';
+      alert(d.message || '更新失败');
+      setTimeout(load, 1200);
+    }
+  }catch(e){
+    el.textContent = '请求失败';
+    wrap.style.color = '#d93025';
+    setTimeout(load, 1200);
+  }
+  coreUpdating = false;
+}
 async function updateSub(){
   if(subUpdating) return;
   subUpdating = true;
@@ -164,6 +194,9 @@ async function load(){
     if(d.ok){ api.textContent='在线'; api.className='pill ok'; }
     else { api.textContent='离线'; api.className='pill down'; }
     document.getElementById('ver').textContent = d.version||'—';
+    // 品牌行内核版本同步（点击可更新）
+    var cv = document.getElementById('coreVer');
+    if(cv && d.version) cv.textContent = 'v' + d.version;
     document.getElementById('mode').textContent = d.mode||'—';
     document.getElementById('nodes').textContent = d.proxies||'—';
     document.getElementById('rules').textContent = d.rules||'—';
@@ -235,11 +268,14 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 data = r.read().decode("utf-8", errors="replace")
             if not data.strip():
                 return {"ok": False, "message": "订阅返回为空"}
-            # 强制本应用端口
+            # 强制本应用端口 + 局域网访问（订阅默认 allow-lan: false 会断局域网代理）
             data = _re.sub(r"(?m)^mixed-port:.*$", "mixed-port: 7890", data)
             data = _re.sub(r"(?m)^port:.*$", "port: 7890", data)
             data = _re.sub(r"(?m)^socks-port:.*$", "socks-port: 7890", data)
             data = _re.sub(r"(?m)^external-controller:.*$", "external-controller: '0.0.0.0:9090'", data)
+            data = _re.sub(r"(?m)^allow-lan:.*$", "allow-lan: true", data)
+            if not _re.search(r"(?m)^allow-lan:", data):
+                data = data.replace("mixed-port: 7890", "mixed-port: 7890\nallow-lan: true", 1)
             cfg_path = os.path.join(DATA_DIR, "config.yaml")
             open(cfg_path, "w", encoding="utf-8").write(data)
             # 热重载 mihomo (不重启进程)
@@ -262,9 +298,125 @@ class Handler(http.server.BaseHTTPRequestHandler):
         except Exception as e:
             return {"ok": False, "message": "%s" % e}
 
+    def _update_core(self):
+        """内核热更新：GitHub latest → 下载校验 → 原子替换 → 重启进程."""
+        import re as _re, urllib.error, shutil, glob
+
+        app_dir = os.path.dirname(os.path.abspath(__file__))
+        # target/ fallback（fnOS TRIM_APPDEST 兼容，与 cmd/main 一致）
+        core_bin = os.path.join(app_dir, "mihomo")
+        if not os.path.isfile(core_bin) and os.path.isfile(os.path.join(app_dir, "target", "mihomo")):
+            app_dir = os.path.join(app_dir, "target")
+            core_bin = os.path.join(app_dir, "mihomo")
+
+        # 当前版本
+        try:
+            out = subprocess.run([core_bin, "-v"], capture_output=True, text=True, timeout=10).stdout
+            m = _re.search(r"v[\d.]+", out)
+            cur_ver = (m.group(0) if m else "").lstrip("v")
+        except Exception:
+            cur_ver = ""
+
+        def _gh(url, timeout=15):
+            req = urllib.request.Request(url, headers={"User-Agent": "mihomo-core"})
+            with urllib.request.urlopen(req, timeout=timeout) as r:
+                return r.read()
+
+        # 1. 查 latest
+        try:
+            latest = json.loads(_gh("https://api.github.com/repos/MetaCubeX/mihomo/releases/latest"))
+        except Exception as e:
+            return {"ok": False, "message": "查询 GitHub 失败: %s" % e}
+        tag = latest.get("tag_name", "")  # e.g. v1.19.30
+        new_ver = tag.lstrip("v")
+        if not new_ver:
+            return {"ok": False, "message": "未获取到最新版本号"}
+        if new_ver == cur_ver:
+            return {"ok": True, "message": "已是最新版本 v%s" % cur_ver, "version": cur_ver, "uptodate": True}
+
+        # 2. 下载（临时文件，失败不动原内核）
+        asset_name = "mihomo-linux-amd64-%s.gz" % tag
+        asset_url = "https://github.com/MetaCubeX/mihomo/releases/download/%s/%s" % (tag, asset_name)
+        tmp_gz = os.path.join(DATA_DIR, "mihomo.new.gz")
+        tmp_bin = os.path.join(DATA_DIR, "mihomo.new")
+        try:
+            data = _gh(asset_url, timeout=300)
+            with open(tmp_gz, "wb") as f:
+                f.write(data)
+        except Exception as e:
+            self._cleanup_tmp(tmp_gz, tmp_bin)
+            return {"ok": False, "message": "下载失败: %s" % e}
+
+        # 3. 解压 + 校验
+        try:
+            import gzip
+            with gzip.open(tmp_gz, "rb") as fin, open(tmp_bin, "wb") as fout:
+                shutil.copyfileobj(fin, fout)
+            os.chmod(tmp_bin, 0o755)
+            out = subprocess.run([tmp_bin, "-v"], capture_output=True, text=True, timeout=10).stdout
+            if new_ver not in out:
+                raise RuntimeError("解压后版本校验失败: %s" % out[:80])
+        except Exception as e:
+            self._cleanup_tmp(tmp_gz, tmp_bin)
+            return {"ok": False, "message": "解压/校验失败: %s" % e}
+
+        # 4. 原子替换
+        try:
+            backup = core_bin + ".bak"
+            if os.path.isfile(backup):
+                os.remove(backup)
+            os.rename(core_bin, backup)
+            try:
+                shutil.move(tmp_bin, core_bin)
+            except Exception:
+                os.rename(backup, core_bin)  # 回滚
+                raise
+            os.remove(backup)
+        except Exception as e:
+            self._cleanup_tmp(tmp_gz, tmp_bin)
+            return {"ok": False, "message": "替换失败: %s" % e}
+        finally:
+            if os.path.isfile(tmp_gz):
+                os.remove(tmp_gz)
+
+        # 5. 重启内核进程（走 cmd/main restart；status_server 自身不受影响）
+        main_sh = os.path.join(app_dir, "main")
+        restart_hint = ""
+        if not os.path.isfile(main_sh):
+            # fnOS 部署形态: cmd 脚本在 /var/apps/<app>/cmd/main 或 target/cmd/main
+            for cand in ("/var/apps/mihomo-core/cmd/main",
+                         "/vol4/@appcenter/mihomo-core/target/cmd/main",
+                         "/vol4/@appcenter/mihomo-core/cmd/main"):
+                if os.path.isfile(cand):
+                    main_sh = cand
+                    break
+        if os.path.isfile(main_sh):
+            subprocess.Popen(["bash", main_sh, "restart"],
+                             stdout=open(os.path.join(DATA_DIR, "mihomo.log"), "a"),
+                             stderr=subprocess.STDOUT)
+            restart_hint = "内核已重启加载新版本"
+        else:
+            restart_hint = "已替换二进制，请在应用管理重启应用后生效"
+
+        return {"ok": True, "message": "v%s → v%s 更新完成。%s" % (cur_ver or "?", new_ver, restart_hint),
+                "version": new_ver}
+
+    @staticmethod
+    def _cleanup_tmp(*paths):
+        for p in paths:
+            try:
+                if p and os.path.isfile(p):
+                    os.remove(p)
+            except OSError:
+                pass
+
     def do_GET(self):  # noqa: N802
         if self.path == "/api/update_subscription":
             result = self._update_subscription()
+            body = json.dumps(result).encode()
+            self._send(200, body, "application/json; charset=utf-8")
+        elif self.path == "/api/update_core":
+            result = self._update_core()
             body = json.dumps(result).encode()
             self._send(200, body, "application/json; charset=utf-8")
         elif self.path == "/api/status":

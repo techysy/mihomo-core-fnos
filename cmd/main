@@ -19,7 +19,7 @@ if [ ! -f "${STATUS_BIN}" ] && [ -f "${APP_DIR}/target/status_server.py" ]; then
     STATUS_BIN="${APP_DIR}/target/status_server.py"
 fi
 STATUS_PORT="${MIHOMO_STATUS_PORT:-9092}"
-APP_VERSION="${MIHOMO_APP_VERSION:-1.1.1}"
+APP_VERSION="${MIHOMO_APP_VERSION:-1.1.2}"
 LOG="${DATA_DIR}/mihomo.log"
 PID_FILE="${DATA_DIR}/mihomo.pid"
 STATUS_PID_FILE="${DATA_DIR}/status.pid"
@@ -98,6 +98,10 @@ try:
     data = re.sub(r'(?m)^port:.*$', 'port: 7890', data)
     data = re.sub(r'(?m)^socks-port:.*$', 'socks-port: 7890', data)
     data = re.sub(r'(?m)^external-controller:.*$', "external-controller: '0.0.0.0:9090'", data)
+    # 局域网访问默认打开（订阅默认 false 会断局域网代理）
+    data = re.sub(r'(?m)^allow-lan:.*$', 'allow-lan: true', data)
+    if not re.search(r'(?m)^allow-lan:', data):
+        data = data.replace('mixed-port: 7890', 'mixed-port: 7890\nallow-lan: true', 1)
     open(p, 'w', encoding='utf-8').write(data)
     print("OK", len(data))
 except Exception as e:
