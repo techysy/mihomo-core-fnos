@@ -21,6 +21,8 @@ fnOS 应用：**独立的 mihomo 内核代理服务**（自启），配合 **Met
 - ✅ 独立 mihomo 内核服务，随 fnOS 开机自启
 - ✅ 纯服务 + 自带状态页（显示内核在线/版本/节点数/规则数）
 - ✅ 配合 MetaCubeXD 面板（或其他 Clash 客户端）管理节点
+- ✅ 订阅配置：App Center 应用设置填订阅链接，自动拉取热重载；更新时强制 `allow-lan: true`
+- ✅ **内核热更新**：状态页点击「内核版本」即可升级到 GitHub 最新版，无需重新发版（v1.1.2+）
 - ✅ geoip 数据预置（避免内核首次启动从公网下载失败）
 - ✅ 遵循 mihomo 的 GPLv3 许可证
 
@@ -111,6 +113,13 @@ fnpack build
 
 - **mihomo 内核**：GPLv3（见 `GPL-3.0.txt`），来源 [MetaCubeX/mihomo](https://github.com/MetaCubeX/mihomo)
 - **本应用**（打包脚本/状态页/配置）：MIT（见 `LICENSE`）
+
+## 文档
+
+- [使用说明](docs/USER-GUIDE.md) — 订阅配置、内核热更新、常见问题
+- [v1.1.2 测试报告](docs/TEST-REPORT-v1.1.2.md) — 7 项完整测试记录
+- [v1.1.2 可行性报告](docs/FEASIBILITY-v1.1.2.md) — 需求分析与实测链路
+- [发布流程](docs/RELEASE.md) — 版本规则与发版步骤
 
 ## 相关项目
 

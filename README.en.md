@@ -19,6 +19,8 @@ An fnOS app: **standalone mihomo proxy core** (auto-start) controlled via the **
 - ✅ Standalone mihomo core, auto-starts with fnOS
 - ✅ Service + built-in status page (core online / version / proxies / rules)
 - ✅ Works with MetaCubeXD panel (or any Clash client) for node management
+- ✅ Subscription config: fill URL in App Center app settings; auto-pull with hot-reload, forces `allow-lan: true`
+- ✅ **Core hot update**: click the core version on the status page to upgrade to the latest GitHub release — no repackaging needed (v1.1.2+)
 - ✅ Preseeded geoip data (avoids public-network download failure on first start)
 - ✅ Respects mihomo's GPLv3 license
 
@@ -105,6 +107,13 @@ fnpack build
 
 - **mihomo core**: GPLv3 (see `GPL-3.0.txt`), from [MetaCubeX/mihomo](https://github.com/MetaCubeX/mihomo)
 - **This app** (packaging scripts / status page / config): MIT (see `LICENSE`)
+
+## Docs
+
+- [User guide (中文)](docs/USER-GUIDE.md) — subscription config, core hot update, FAQ
+- [v1.1.2 test report](docs/TEST-REPORT-v1.1.2.md) — full 7-item test record
+- [v1.1.2 feasibility report](docs/FEASIBILITY-v1.1.2.md) — requirement analysis & live-path verification
+- [Release process](docs/RELEASE.md) — versioning & release steps
 
 ## Related
 
