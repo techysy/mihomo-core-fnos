@@ -146,7 +146,7 @@ async function updateCore(){
   coreUpdating = true;
   var wrap = document.getElementById('coreVerWrap');
   var el = document.getElementById('coreVer');
-  if(!confirm('检查并更新 mihomo 内核到最新版？\n更新过程会重启内核（代理中断几秒）')) { coreUpdating = false; return; }
+  if(!confirm('检查并更新 mihomo 内核到最新版？更新过程会重启内核（代理中断几秒）')) { coreUpdating = false; return; }
   wrap.style.color = '#888';
   el.textContent = '更新中…';
   try{
