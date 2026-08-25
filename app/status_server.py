@@ -153,7 +153,7 @@ async function updateCore(){
     const r = await fetch('/api/update_core');
     const d = await r.json();
     if(d.ok){
-      el.textContent = 'v' + (d.version || '?');
+      el.textContent = (d.version || '?');
       wrap.style.color = '#1a9e4e';
       alert(d.message || '更新完成');
       if(!d.uptodate) setTimeout(load, 2500);
@@ -196,7 +196,7 @@ async function load(){
     document.getElementById('ver').textContent = d.version||'—';
     // 品牌行内核版本同步（点击可更新）
     var cv = document.getElementById('coreVer');
-    if(cv && d.version) cv.textContent = 'v' + d.version;
+    if(cv && d.version) cv.textContent = d.version;
     document.getElementById('mode').textContent = d.mode||'—';
     document.getElementById('nodes').textContent = d.proxies||'—';
     document.getElementById('rules').textContent = d.rules||'—';
