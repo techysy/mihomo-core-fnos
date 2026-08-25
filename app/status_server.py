@@ -145,30 +145,23 @@ async function updateCore(){
   if(coreUpdating) return;
   coreUpdating = true;
   var el = document.getElementById('ver');
-  var orig = el.textContent;
   if(!confirm('检查并更新 mihomo 内核到最新版？更新过程会重启内核（代理中断几秒）')) { coreUpdating = false; return; }
   el.style.color = '#888';
   el.textContent = '检查更新中…';
+  var ok = false, msg = '';
   try{
     const r = await fetch('/api/update_core');
     const d = await r.json();
-    if(d.ok){
-      el.textContent = (d.version || '?');
-      el.style.color = '#1a9e4e';
-      alert(d.message || '更新完成');
-      if(!d.uptodate) setTimeout(load, 2500);
-    } else {
-      el.textContent = '更新失败';
-      el.style.color = '#d93025';
-      alert(d.message || '更新失败');
-      setTimeout(load, 1200);
-    }
+    ok = !!d.ok; msg = d.message || (ok ? '更新完成' : '更新失败');
+    if(ok && !d.uptodate){ /* 更新成功：load() 会刷新版本号 */ }
   }catch(e){
-    el.textContent = '请求失败';
-    el.style.color = '#d93025';
-    setTimeout(load, 1200);
+    msg = '请求失败';
   }
   coreUpdating = false;
+  // 结果就地在版本号行显示 3 秒（绿=成功 红=失败），不弹窗
+  el.textContent = msg;
+  el.style.color = ok ? '#1a9e4e' : '#d93025';
+  setTimeout(function(){ load(); }, 3000);
 }
 async function updateSub(){
   if(subUpdating) return;
