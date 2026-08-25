@@ -93,12 +93,12 @@ PAGE = """<!doctype html>
   }
 </style></head><body>
 <div class="wrap">
-  <div class="brand">Mihomo <span>Core</span> <span class="ver" id="appVer" style="cursor:default">v%(APP_VERSION)s</span> <span class="ver" id="coreVerWrap" style="cursor:pointer" title="点击检查并更新内核" onclick="updateCore()">· 内核 <span id="coreVer">…</span></span></div>
+  <div class="brand">Mihomo <span>Core</span> <span class="ver" id="appVer" style="cursor:default">v%(APP_VERSION)s</span></div>
   <div class="sub">mihomo 内核代理服务 · mixed 7890 · Clash API 9090</div>
   <div class="card">
     <div class="h">内核状态</div>
     <div class="row"><span class="k">Clash API (:9090)</span><span id="api" class="pill down">检测中…</span></div>
-    <div class="row"><span class="k">内核版本</span><span id="ver" class="v">—</span></div>
+    <div class="row"><span class="k">内核版本</span><span id="ver" class="v" style="cursor:pointer;color:#ff6a00" title="点击检查并更新内核" onclick="updateCore()">—</span></div>
     <div class="row"><span class="k">模式</span><span id="mode" class="v">—</span></div>
     <div class="row"><span class="k">节点数</span><span id="nodes" class="v">—</span></div>
     <div class="row"><span class="k">规则数</span><span id="rules" class="v">—</span></div>
@@ -144,28 +144,28 @@ var coreUpdating = false;
 async function updateCore(){
   if(coreUpdating) return;
   coreUpdating = true;
-  var wrap = document.getElementById('coreVerWrap');
-  var el = document.getElementById('coreVer');
+  var el = document.getElementById('ver');
+  var orig = el.textContent;
   if(!confirm('检查并更新 mihomo 内核到最新版？更新过程会重启内核（代理中断几秒）')) { coreUpdating = false; return; }
-  wrap.style.color = '#888';
-  el.textContent = '更新中…';
+  el.style.color = '#888';
+  el.textContent = '检查更新中…';
   try{
     const r = await fetch('/api/update_core');
     const d = await r.json();
     if(d.ok){
       el.textContent = (d.version || '?');
-      wrap.style.color = '#1a9e4e';
+      el.style.color = '#1a9e4e';
       alert(d.message || '更新完成');
       if(!d.uptodate) setTimeout(load, 2500);
     } else {
       el.textContent = '更新失败';
-      wrap.style.color = '#d93025';
+      el.style.color = '#d93025';
       alert(d.message || '更新失败');
       setTimeout(load, 1200);
     }
   }catch(e){
     el.textContent = '请求失败';
-    wrap.style.color = '#d93025';
+    el.style.color = '#d93025';
     setTimeout(load, 1200);
   }
   coreUpdating = false;
@@ -194,9 +194,6 @@ async function load(){
     if(d.ok){ api.textContent='在线'; api.className='pill ok'; }
     else { api.textContent='离线'; api.className='pill down'; }
     document.getElementById('ver').textContent = d.version||'—';
-    // 品牌行内核版本同步（点击可更新）
-    var cv = document.getElementById('coreVer');
-    if(cv && d.version) cv.textContent = d.version;
     document.getElementById('mode').textContent = d.mode||'—';
     document.getElementById('nodes').textContent = d.proxies||'—';
     document.getElementById('rules').textContent = d.rules||'—';
