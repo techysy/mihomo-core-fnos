@@ -12,7 +12,7 @@ import socketserver
 
 PORT = int(os.environ.get("MIHOMO_STATUS_PORT", "9092"))
 CLASH_API = os.environ.get("MIHOMO_CLASH_API", "http://127.0.0.1:9090")
-APP_VERSION = os.environ.get("MIHOMO_APP_VERSION", "1.1.2")
+APP_VERSION = os.environ.get("MIHOMO_APP_VERSION", "1.1.4")
 def _default_data_dir():
     """从 status_server.py 所在位置推导数据目录（避免硬编码存储卷路径）。
     脚本位置: <vol>/@appcenter/<app>[/target]/status_server.py
