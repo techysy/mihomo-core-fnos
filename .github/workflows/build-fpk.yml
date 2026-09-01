@@ -1,0 +1,186 @@
+name: Build mihomo-core fpk (在线打包)
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '版本号 (留空用 tag，如 v1.1.3 → 1.1.3)'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+jobs:
+  # 解析版本号：优先 tag(v1.1.3 → 1.1.3)，其次手动输入，最后 manifest
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.resolve.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: 解析版本号
+        id: resolve
+        run: |
+          if [ -n "${{ inputs.version }}" ]; then
+            VER="${{ inputs.version }}"
+          elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            REF="${{ github.ref }}"
+            VER="${REF##*/}"
+            VER="${VER#v}"
+          else
+            VER="$(grep -E '^version[[:space:]]*=' manifest | head -1 | sed 's/.*=//;s/[[:space:]]//g')"
+          fi
+          [ -n "$VER" ] || { echo "ERROR: 无法解析版本号"; exit 1; }
+          echo "version=$VER"
+          echo "version=$VER" >> "$GITHUB_OUTPUT"
+
+  build-fpk:
+    needs: version
+    strategy:
+      matrix:
+        arch: [x86, arm]
+    runs-on: ${{ matrix.arch == 'arm' && 'ubuntu-24.04-arm' || 'ubuntu-24.04' }}
+    timeout-minutes: 120
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 显示环境
+        run: |
+          uname -m
+          docker --version
+
+      # ── 下载 mihomo 内核二进制 (latest) ──────────────────────
+      - name: 获取 mihomo 最新版本
+        id: mihomo
+        run: |
+          TAG=$(curl -s "https://api.github.com/repos/MetaCubeX/mihomo/releases/latest" | python3 -c "import sys,json; print(json.load(sys.stdin)['tag_name'])")
+          [ -n "$TAG" ] || { echo "ERROR: 获取 mihomo 版本失败"; exit 1; }
+          echo "mihomo tag: $TAG"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: 下载 mihomo 内核 (${{ matrix.arch }})
+        run: |
+          set -euo pipefail
+          TAG="${{ steps.mihomo.outputs.tag }}"
+          if [ "${{ matrix.arch }}" = "arm" ]; then
+            ASSET="mihomo-linux-arm64-${TAG}.gz"
+          else
+            ASSET="mihomo-linux-amd64-${TAG}.gz"
+          fi
+          URL="https://github.com/MetaCubeX/mihomo/releases/download/${TAG}/${ASSET}"
+          echo "下载: $URL"
+          curl -fL --retry 3 -o mihomo.gz "$URL"
+          gunzip -f mihomo.gz
+          chmod +x mihomo
+          mv mihomo app/mihomo
+          ./app/mihomo -v || true
+          ls -lh app/mihomo
+
+      # ── 下载 geoip / geosite 数据 ────────────────────────────
+      - name: 下载 geoip / geosite 数据
+        run: |
+          set -euo pipefail
+          TAG=$(curl -s "https://api.github.com/repos/MetaCubeX/meta-rules-dat/releases/latest" | python3 -c "import sys,json; print(json.load(sys.stdin)['tag_name'])")
+          [ -n "$TAG" ] || { echo "ERROR: 获取 meta-rules-dat 版本失败"; exit 1; }
+          BASE="https://github.com/MetaCubeX/meta-rules-dat/releases/download/${TAG}"
+          echo "meta-rules-dat tag: $TAG"
+          curl -fL --retry 3 -o app/geoip.metadb "${BASE}/geoip.metadb" || { echo "geoip.metadb 下载失败"; exit 1; }
+          curl -fL --retry 3 -o app/geosite.dat "${BASE}/geosite.dat" || { echo "geosite.dat 下载失败"; exit 1; }
+          ls -lh app/geoip.metadb app/geosite.dat
+
+      # ── 下载 fnpack ──────────────────────────────────────────
+      - name: Download fnpack
+        env:
+          FNPACK_VERSION: "1.2.1"
+        run: |
+          set -euo pipefail
+          if [ "${{ matrix.arch }}" = "arm" ]; then
+            FNPACK_BIN="fnpack-${FNPACK_VERSION}-linux-arm64"
+            FNPACK_SHA256="aad9e16b101267d30017f39ab969e3c085fbce209716f8bd3b1e167eaf15e0cf"
+          else
+            FNPACK_BIN="fnpack-${FNPACK_VERSION}-linux-amd64"
+            FNPACK_SHA256="72d2a4095da676b64510b023731a227b369d80f8079bc45ff8a2f802ec0480c1"
+          fi
+          curl -fsSL -o /usr/local/bin/fnpack "https://static2.fnnas.com/fnpack/${FNPACK_BIN}"
+          echo "${FNPACK_SHA256}  /usr/local/bin/fnpack" | sha256sum -c -
+          chmod +x /usr/local/bin/fnpack
+          fnpack --help | head -3
+
+      # ── 同步版本号 + 架构到 manifest ─────────────────────────
+      - name: Set manifest version + arch
+        run: |
+          set -euo pipefail
+          sed -i "s/^version[[:space:]]*=.*/version               = $VERSION/" manifest
+          if [ "${{ matrix.arch }}" = "arm" ]; then
+            sed -i "s/^arch[[:space:]]*=.*/arch                  = aarch64/" manifest
+          else
+            sed -i "s/^arch[[:space:]]*=.*/arch                  = x86_64/" manifest
+          fi
+          grep -E '^(appname|version|arch)[[:space:]]*=' manifest
+
+      # ── 打包 (url + iframe 双变体) ───────────────────────────
+      - name: Remove symlinks
+        run: |
+          find . -type l -not -path './.git/*' -delete 2>/dev/null || true
+          echo "symlinks remaining: $(find . -type l -not -path './.git/*' | wc -l)"
+
+      - name: Build url variant
+        run: |
+          set -euo pipefail
+          jq --exit-status '."\u002eurl"."mihomo-core.Application".type = "url"' app/ui/config > app/ui/config.tmp
+          mv app/ui/config.tmp app/ui/config
+          rm -f mihomo-core.fpk
+          fnpack build -d .
+          [ -f mihomo-core.fpk ] || { echo "ERROR: fnpack build url failed"; exit 1; }
+          mv mihomo-core.fpk "mihomo-core-${VERSION}-${{ matrix.arch }}.fpk"
+          ls -lh "mihomo-core-${VERSION}-${{ matrix.arch }}.fpk"
+
+      - name: Build iframe variant
+        run: |
+          set -euo pipefail
+          jq --exit-status '."\u002eurl"."mihomo-core.Application".type = "iframe"' app/ui/config > app/ui/config.tmp
+          mv app/ui/config.tmp app/ui/config
+          rm -f mihomo-core.fpk
+          fnpack build -d .
+          [ -f mihomo-core.fpk ] || { echo "ERROR: fnpack build iframe failed"; exit 1; }
+          mv mihomo-core.fpk "mihomo-core-${VERSION}-iframe-${{ matrix.arch }}.fpk"
+          ls -lh "mihomo-core-${VERSION}-iframe-${{ matrix.arch }}.fpk"
+
+      - name: Upload fpk artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mihomo-core-fpk-${{ matrix.arch }}-${{ github.sha }}
+          path: mihomo-core-*.fpk
+          if-no-files-found: error
+          retention-days: 14
+
+  release:
+    needs: build-fpk
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - name: Download all fpk artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: fpk-assets
+          pattern: mihomo-core-fpk-*
+          merge-multiple: true
+
+      - name: Upload to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: fpk-assets/mihomo-core-*.fpk
+          fail_on_unmatched_files: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Summary
+        run: |
+          echo "## ✅ mihomo-core fpk 构建完成" >> "$GITHUB_STEP_SUMMARY"
+          ls -lh fpk-assets/ >> "$GITHUB_STEP_SUMMARY"
