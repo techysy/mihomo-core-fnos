@@ -128,37 +128,7 @@ jobs:
       - name: 生成 ICON.PNG
         run: |
           if [ ! -f ICON.PNG ]; then
-            python3 - << 'PYEOF'
-            # 生成一个 256x256 图标：深蓝底 + 白色 "M" 文字
-            import struct, zlib
-            def chunk(t, d):
-                c = t + d
-                return struct.pack(">I", len(d)) + c + struct.pack(">I", zlib.crc32(c) & 0xffffffff)
-            w = h = 256
-            bg = (16, 20, 40)   # 深蓝
-            fg = (255, 255, 255)
-            raw = bytearray()
-            for y in range(h):
-                raw.append(0)
-                for x in range(w):
-                    # 画一个简单的 "M"（两条斜线 + 中间 V）
-                    px = bg
-                    if 60 < x < 200 and 80 < y < 176:
-                        # M 形：左右竖线 + 中间 V
-                        if (x < 80 and (y - 80) * 1.0 / (176 - 80) > 0) or \
-                           (x > 176 and (y - 80) * 1.0 / (176 - 80) > 0):
-                            px = fg
-                        # 中间 V
-                        if abs((x - 128) - (y - 128) * 0.8) < 14 or abs((x - 128) + (y - 128) * 0.8) < 14:
-                            px = fg
-                    raw += bytes(px + (255,))
-            idat = zlib.compress(bytes(raw), 9)
-            png = b"\x89PNG\r\n\x1a\n"
-            png += chunk(b"IHDR", struct.pack(">IIBBBBB", w, h, 8, 6, 0, 0, 0))
-            png += chunk(b"IDAT", idat)
-            png += chunk(b"IEND", b"")
-            open("ICON.PNG", "wb").write(png)
-            PYEOF
+            python3 scripts/gen_icon.py ICON.PNG
           fi
           ls -lh ICON.PNG
 
