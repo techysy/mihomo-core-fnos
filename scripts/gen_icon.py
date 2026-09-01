@@ -16,7 +16,9 @@ def chunk(t, d):
 
 
 def main():
-    out = sys.argv[1] if len(sys.argv) > 1 else "ICON.PNG"
+    out_dir = "."
+    if len(sys.argv) > 1:
+        out_dir = sys.argv[1]
     w = h = 256
     bg = (16, 20, 40)   # 深蓝底
     fg = (255, 255, 255)  # 白色 M
@@ -36,9 +38,12 @@ def main():
     png += chunk(b"IHDR", struct.pack(">IIBBBBB", w, h, 8, 6, 0, 0, 0))
     png += chunk(b"IDAT", idat)
     png += chunk(b"IEND", b"")
-    with open(out, "wb") as f:
-        f.write(png)
-    print("生成", out, len(png), "bytes")
+    # fnpack 要求根目录同时存在 ICON.PNG 和 ICON_256.PNG
+    for name in ("ICON.PNG", "ICON_256.PNG"):
+        path = os.path.join(out_dir, name)
+        with open(path, "wb") as f:
+            f.write(png)
+        print("生成", path, len(png), "bytes")
 
 
 if __name__ == "__main__":

@@ -128,9 +128,9 @@ jobs:
       - name: 生成 ICON.PNG
         run: |
           if [ ! -f ICON.PNG ]; then
-            python3 scripts/gen_icon.py ICON.PNG
+            python3 scripts/gen_icon.py .
           fi
-          ls -lh ICON.PNG
+          ls -lh ICON.PNG ICON_256.PNG
 
       # ── 打包 (url + iframe 双变体) ───────────────────────────
       - name: Remove symlinks
