@@ -110,7 +110,7 @@ jobs:
           curl -fsSL -o /usr/local/bin/fnpack "https://static2.fnnas.com/fnpack/${FNPACK_BIN}"
           echo "${FNPACK_SHA256}  /usr/local/bin/fnpack" | sha256sum -c -
           chmod +x /usr/local/bin/fnpack
-          fnpack --help | head -3
+          fnpack --help | head -3 || true
 
       # ── 同步版本号 + 架构到 manifest ─────────────────────────
       - name: Set manifest version + arch
