@@ -1,0 +1,4 @@
+DOMAIN-SUFFIX,ai
+DOMAIN-SUFFIX,gorouter.app
+DOMAIN-SUFFIX,mirasim.ai
+DOMAIN-SUFFIX,mirasim.com.ai

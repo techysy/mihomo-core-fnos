@@ -267,6 +267,35 @@ class Handler(http.server.BaseHTTPRequestHandler):
             if not _re.search(r"(?m)^allow-lan:", data):
                 data = data.replace("mixed-port: 7890", "mixed-port: 7890\nallow-lan: true", 1)
             cfg_path = os.path.join(DATA_DIR, "config.yaml")
+
+            # ── 注入用户自定义规则（独立文件 custom-rules.txt，订阅更新不覆盖）──
+            # 用户的 AI / 中转站等自定义规则存在独立文件 custom-rules.txt，
+            # 订阅刷新后通过 `type: file` rule-provider 重新注入 config.yaml，
+            # 使自定义规则永久保留且独立落库（不被订阅覆盖）。
+            _custom_path = os.path.join(DATA_DIR, "custom-rules.txt")
+            if os.path.isfile(_custom_path) and os.path.getsize(_custom_path) > 0:
+                try:
+                    # 1) rules: 加 RULE-SET,custom（MATCH 兜底之前）
+                    _lines = data.splitlines()
+                    _out = []
+                    _injected = False
+                    for _line in _lines:
+                        if not _injected and _line.strip().startswith("- ") and "MATCH" in _line:
+                            _out.append("  - RULE-SET,custom,💬 Ai平台")
+                            _injected = True
+                        _out.append(_line)
+                    if not _injected:
+                        _out.append("  - RULE-SET,custom,💬 Ai平台")
+                    data = "\n".join(_out)
+                    # 2) rule-providers: 加 custom (type: file 本地文件)
+                    _prov = '\n  custom:\n    type: file\n    behavior: classical\n    format: text\n    path: "%s"\n' % _custom_path
+                    if "rule-providers:" in data:
+                        data = data.replace("rule-providers:", "rule-providers:" + _prov, 1)
+                    else:
+                        data = data + "\nrule-providers:" + _prov
+                except Exception:
+                    pass
+
             open(cfg_path, "w", encoding="utf-8").write(data)
             # 热重载 mihomo (不重启进程)
             reloaded = False
@@ -409,6 +438,17 @@ class Handler(http.server.BaseHTTPRequestHandler):
             result = self._update_core()
             body = json.dumps(result).encode()
             self._send(200, body, "application/json; charset=utf-8")
+        elif self.path == "/api/custom_rules":
+            path = self._custom_rules_file()
+            rules = []
+            if os.path.isfile(path):
+                try:
+                    with open(path, encoding="utf-8") as f:
+                        rules = [l.strip() for l in f if l.strip()]
+                except Exception:
+                    rules = []
+            body = json.dumps({"ok": True, "rules": rules, "count": len(rules)}).encode()
+            self._send(200, body, "application/json; charset=utf-8")
         elif self.path == "/api/status":
             ver = clash("/version")
             cfg = clash("/configs")
@@ -473,6 +513,82 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self._send(200, body, "application/json; charset=utf-8")
         else:
             self._send(200, PAGE.encode(), "text/html; charset=utf-8")
+
+    def _custom_rules_file(self):
+        return os.path.join(DATA_DIR, "custom-rules.txt")
+
+    def _ensure_custom_provider(self):
+        """确保 config.yaml 注入 custom rule-provider + RULE-SET (幂等)。"""
+        cfg_path = os.path.join(DATA_DIR, "config.yaml")
+        if not os.path.isfile(cfg_path):
+            return False
+        try:
+            data = open(cfg_path, encoding="utf-8").read()
+            custom_path = self._custom_rules_file()
+            changed = False
+            if "RULE-SET,custom" not in data:
+                lines = data.splitlines()
+                out = []
+                injected = False
+                for line in lines:
+                    if not injected and line.strip().startswith("- ") and "MATCH" in line:
+                        out.append("  - RULE-SET,custom,💬 Ai平台")
+                        injected = True
+                    out.append(line)
+                if not injected:
+                    out.append("  - RULE-SET,custom,💬 Ai平台")
+                data = "\n".join(out)
+                changed = True
+            if "custom:" not in data or "rule-providers:" not in data:
+                prov = "\n  custom:\n    type: file\n    behavior: classical\n    format: text\n    path: \"%s\"\n" % custom_path
+                if "rule-providers:" in data:
+                    data = data.replace("rule-providers:", "rule-providers:" + prov, 1)
+                else:
+                    data = data + "\nrule-providers:" + prov
+                changed = True
+            if changed:
+                open(cfg_path, "w", encoding="utf-8").write(data)
+            return True
+        except Exception:
+            return False
+
+    def _reload_mihomo(self):
+        """热重载 mihomo 配置 (Clash API PUT /configs)."""
+        try:
+            cfg_path = os.path.join(DATA_DIR, "config.yaml")
+            body = json.dumps({"path": cfg_path}).encode()
+            req = urllib.request.Request(CLASH_API + "/configs?force=true", data=body,
+                                         headers={"Content-Type": "application/json", "User-Agent": "mihomo-core"},
+                                         method="PUT")
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                return resp.status in (200, 204)
+        except Exception:
+            return False
+
+    def do_POST(self):  # noqa: N802
+        length = int(self.headers.get("Content-Length", 0))
+        raw = self.rfile.read(length) if length else b""
+        try:
+            payload = json.loads(raw) if raw else {}
+        except Exception:
+            payload = {}
+        if self.path == "/api/custom_rules":
+            rule = (payload.get("rule") or "").strip()
+            if not rule:
+                self._send(400, json.dumps({"ok": False, "message": "rule 不能为空"}).encode(), "application/json; charset=utf-8")
+                return
+            # 规范化：未带类型前缀时默认按域名后缀 (DOMAIN-SUFFIX)
+            if not rule.split(",", 1)[0].upper().startswith(("DOMAIN", "IP-", "RULE-SET", "GEOIP", "GEOSITE", "PROCESS", "MATCH")):
+                rule = "DOMAIN-SUFFIX," + rule
+            # 确保 config.yaml 有 custom provider，再追加规则
+            self._ensure_custom_provider()
+            path = self._custom_rules_file()
+            with open(path, "a", encoding="utf-8") as f:
+                f.write(rule + "\n")
+            reloaded = self._reload_mihomo()
+            self._send(200, json.dumps({"ok": True, "message": "规则已添加", "rule": rule, "reloaded": reloaded}).encode(), "application/json; charset=utf-8")
+        else:
+            self._send(404, json.dumps({"ok": False, "message": "not found"}).encode(), "application/json; charset=utf-8")
 
 
 class Server(socketserver.ThreadingTCPServer):

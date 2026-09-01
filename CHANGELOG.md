@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.1.3] - 2026-09-02
+
+- **自定义规则独立落库**：新增独立文件 `custom-rules.txt`（DATA_DIR），用户自定义规则（AI 域名、中转站等）存于此，订阅更新**不再覆盖**。订阅刷新后通过 `type: file` rule-provider 重新注入 config.yaml（`RULE-SET,custom` + `rule-providers.custom`）。状态页手动获取（`_update_subscription`）与启动自动应用（`apply_subscription`）两条路径均已覆盖
+- **局域网规则 API**：新增 `GET /api/custom_rules`（查看）与 `POST /api/custom_rules`（添加，body `{"rule":"example.ai"}`，自动规范化并热重载），供 agent / 脚本快速添加自定义规则
+
 ## [1.1.2] - 2026-08-25
 
 - **订阅更新强制 allow-lan: true**：订阅源返回 `allow-lan: false` 时自动改写为 `true`（缺行则追加），修复每次更新订阅后局域网设备断连问题。状态页手动获取（`_update_subscription`）与启动自动应用（`apply_subscription`）两条路径均已覆盖
