@@ -113,16 +113,18 @@ jobs:
           fnpack --help | head -3 || true
 
       # ── 同步版本号 + 架构到 manifest ─────────────────────────
-      - name: Set manifest version + arch
+      - name: Set manifest version + arch + platform
         run: |
           set -euo pipefail
           sed -i "s/^version[[:space:]]*=.*/version               = $VERSION/" manifest
           if [ "${{ matrix.arch }}" = "arm" ]; then
             sed -i "s/^arch[[:space:]]*=.*/arch                  = aarch64/" manifest
+            sed -i "s/^platform[[:space:]]*=.*/platform              = arm/" manifest
           else
             sed -i "s/^arch[[:space:]]*=.*/arch                  = x86_64/" manifest
+            sed -i "s/^platform[[:space:]]*=.*/platform              = x86/" manifest
           fi
-          grep -E '^(appname|version|arch)[[:space:]]*=' manifest
+          grep -E '^(appname|version|arch|platform)[[:space:]]*=' manifest
 
       # ── 生成应用图标 (fnpack 需要根目录 ICON.PNG) ──────────────
       - name: 生成 ICON.PNG
