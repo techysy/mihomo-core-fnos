@@ -12,6 +12,8 @@ import socketserver
 
 PORT = int(os.environ.get("MIHOMO_STATUS_PORT", "9092"))
 CLASH_API = os.environ.get("MIHOMO_CLASH_API", "http://127.0.0.1:9090")
+# MetaCubeXD 面板地址（mihomo 状态页触发面板更新/读版本）
+PANEL_API = os.environ.get("MIHOMO_PANEL_API", "http://127.0.0.1:9091")
 APP_VERSION = os.environ.get("MIHOMO_APP_VERSION", "1.1.4")
 def _default_data_dir():
     """从 status_server.py 所在位置推导数据目录（避免硬编码存储卷路径）。
@@ -99,6 +101,7 @@ PAGE = """<!doctype html>
     <div class="h">内核状态</div>
     <div class="row"><span class="k">Clash API (:9090)</span><span id="api" class="pill down">检测中…</span></div>
     <div class="row"><span class="k">内核版本</span><span id="ver" class="v" style="cursor:pointer;color:#ff6a00" title="点击检查并更新内核" onclick="updateCore()">—</span></div>
+    <div class="row"><span class="k">面板版本</span><span id="panelVer" class="v" style="cursor:pointer;color:#ff6a00" title="点击更新 MetaCubeXD 面板（无感，不中断代理）">—</span></div>
     <div class="row"><span class="k">模式</span><span id="mode" class="v">—</span></div>
     <div class="row"><span class="k">节点数</span><span id="nodes" class="v">—</span></div>
     <div class="row"><span class="k">规则数</span><span id="rules" class="v">—</span></div>
@@ -179,6 +182,27 @@ async function updateSub(){
   }
   subUpdating = false;
 }
+var panelUpdating = false;
+async function updatePanel(){
+  if(panelUpdating) return;
+  panelUpdating = true;
+  var el = document.getElementById('panelVer');
+  if(!confirm('更新 MetaCubeXD 面板到最新版？更新过程不影响代理（面板短暂刷新）')) { panelUpdating = false; return; }
+  el.style.color = '#888';
+  el.textContent = '更新中…';
+  var ok = false, msg = '';
+  try{
+    const r = await fetch('/api/update_panel');
+    const d = await r.json();
+    ok = !!d.ok; msg = d.message || (ok ? '面板已更新' : '更新失败');
+  }catch(e){
+    msg = '请求失败';
+  }
+  panelUpdating = false;
+  el.textContent = msg;
+  el.style.color = ok ? '#1a9e4e' : '#d93025';
+  setTimeout(function(){ load(); }, 3000);
+}
 async function load(){
   try{
     const r = await fetch('/api/status');
@@ -212,6 +236,20 @@ async function load(){
       subsEl.innerHTML = '<span style="color:#999">未配置</span>';
       window._subAuto = true;
     }
+    // 面板版本（读 metacubexd 面板，localhost:9091）
+    try{
+      const pr = await fetch('/api/panel_version');
+      const pd = await pr.json();
+      const pv = document.getElementById('panelVer');
+      if(pd.ok){
+        pv.textContent = pd.version || '已安装';
+        pv.onclick = updatePanel;
+      } else {
+        pv.textContent = '—';
+        pv.onclick = null;
+        pv.style.color = '#999';
+      }
+    }catch(e){}
   }catch(e){}
 }
 load(); setInterval(load, 5000);
@@ -449,6 +487,16 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     rules = []
             body = json.dumps({"ok": True, "rules": rules, "count": len(rules)}).encode()
             self._send(200, body, "application/json; charset=utf-8")
+        elif self.path == "/api/panel_version":
+            # 读 MetaCubeXD 面板版本（面板提供 /__version 接口）
+            try:
+                req = urllib.request.Request(PANEL_API + "/__version")
+                with urllib.request.urlopen(req, timeout=5) as r:
+                    d = json.loads(r.read().decode("utf-8", errors="replace"))
+                body = json.dumps({"ok": True, "version": d.get("version", ""), "panel": PANEL_API}).encode()
+            except Exception as e:
+                body = json.dumps({"ok": False, "message": "面板不可达: %s" % e}).encode()
+            self._send(200, body, "application/json; charset=utf-8")
         elif self.path == "/api/status":
             ver = clash("/version")
             cfg = clash("/configs")
@@ -587,6 +635,15 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 f.write(rule + "\n")
             reloaded = self._reload_mihomo()
             self._send(200, json.dumps({"ok": True, "message": "规则已添加", "rule": rule, "reloaded": reloaded}).encode(), "application/json; charset=utf-8")
+        elif self.path == "/api/update_panel":
+            # 触发 MetaCubeXD 面板更新（调面板 POST /upgrade，面板自身写自己的 www）
+            try:
+                req = urllib.request.Request(PANEL_API + "/upgrade", data=b"", method="POST")
+                with urllib.request.urlopen(req, timeout=180) as r:
+                    d = json.loads(r.read().decode("utf-8", errors="replace"))
+                self._send(200, json.dumps(d).encode(), "application/json; charset=utf-8")
+            except Exception as e:
+                self._send(200, json.dumps({"ok": False, "message": "更新失败: %s" % e}).encode(), "application/json; charset=utf-8")
         else:
             self._send(404, json.dumps({"ok": False, "message": "not found"}).encode(), "application/json; charset=utf-8")
 

@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.1.5] - 2026-09-02
+
+- **面板版本显示 + 一键更新**：状态页「内核状态」新增「面板版本」行（紧跟内核版本下方），显示 MetaCubeXD 面板版本（读面板 `/__version`）；点击版本号无感触发面板更新（调面板 `POST /upgrade`，面板自身下载上游 gh-pages 替换 www 并保留 config.js，不中断代理）。配合 metacubexd-fnos 的面板更新接口使用
+- 新增端点：`GET /api/panel_version`（读面板版本）、`POST /api/update_panel`（触发面板更新）
+
 ## [1.1.4] - 2026-09-02
 
 - **自定义规则独立落库**：新增独立文件 `custom-rules.txt`（DATA_DIR），用户自定义规则（AI 域名、中转站等）存于此，订阅更新**不再覆盖**。订阅刷新后通过 `type: file` rule-provider 重新注入 config.yaml（`RULE-SET,custom` + `rule-providers.custom`）。状态页手动获取（`_update_subscription`）与启动自动应用（`apply_subscription`）两条路径均已覆盖
