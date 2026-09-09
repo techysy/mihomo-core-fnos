@@ -541,7 +541,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                             _in = True; continue
                         if _in and _ln.startswith("proxy-groups:"):
                             break
-                        if _in and _re3.match(r"^\s*-\s*name:", _ln):
+                        if _in and _re3.match(r"^\s*-\s*\{?\s*name:", _ln):
                             sub_proxies += 1
                 except Exception:
                     pass
