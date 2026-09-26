@@ -52,6 +52,10 @@ flowchart LR
     STATUS["状态页 :9092<br/>fnOS 桌面入口"] -->|查询 / 热重载| CORE
     STATUS -. 手动获取订阅 .-> PULL
     STATUS -. 读版本 / 更新 .-> PANEL
+    PAD["&nbsp;<br/>&nbsp;"]
+    PANEL ~~~ PAD
+
+    style PAD fill:transparent,stroke:none,color:transparent
 ```
 
 - **mihomo-core**（本应用）：运行 mihomo 内核，提供代理（7890）和控制 API（9090），附带状态页（9092）
