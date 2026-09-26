@@ -41,22 +41,14 @@
 
 ## 架构
 
-```mermaid
-flowchart LR
-    SET["应用设置<br/>订阅名称<br/>订阅链接"] -->|config_callback| SUB[("数据目录<br/>subscription_url<br/>custom-rules.txt")]
-    SUB -->|启动时| PULL["拉取订阅<br/>强制 7890 / 9090<br/>allow-lan: true<br/>注入自定义规则"]
-    PULL --> CFG[("config.yaml")]
-    CFG --> CORE["mihomo 内核<br/>mixed 7890<br/>Clash API 9090"]
-    DEV["局域网设备"] -->|HTTP / SOCKS5 :7890| CORE
-    PANEL["MetaCubeXD 面板<br/>:9091（独立应用）"] -->|:9090| CORE
-    STATUS["状态页 :9092<br/>fnOS 桌面入口"] -->|查询 / 热重载| CORE
-    STATUS -. 手动获取订阅 .-> PULL
-    STATUS -. 读版本 / 更新 .-> PANEL
-    PAD["&nbsp;<br/>&nbsp;"]
-    PANEL ~~~ PAD
+<div align="center">
 
-    style PAD fill:transparent,stroke:none,color:transparent
-```
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/architecture.svg">
+  <img src="docs/architecture-light.svg" width="860" alt="Mihomo Core 架构">
+</picture>
+
+</div>
 
 - **mihomo-core**（本应用）：运行 mihomo 内核，提供代理（7890）和控制 API（9090），附带状态页（9092）
 - **MetaCubeXD**（[metacubexd-fnos](https://github.com/techysy/metacubexd-fnos)，单独安装）：纯前端面板，连接 9090 切换节点 / 测延迟 / 看连接
